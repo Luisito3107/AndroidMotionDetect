@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">MotionDetect</string>
+
+    <string name="foregroundservice_status_running">Capturing and sending sensor data</string>
+    <string name="foregroundservice_status_listening">Waiting for instructions from phone</string>
+    <string name="foregroundservice_status_stopped">Service is not running</string>
+
+    <string name="foregroundservice_device_not_connected">No device connected</string>
+
+    <string name="foregroundservice_permission_denied">Body sensors permission is not granted</string>
+
+    <string name="foregroundservice_notification_content_running">Capturing and sending sensor data. This may be consuming a lot of battery!</string>
+    <string name="foregroundservice_notification_content_listening">Waiting for instructions from phone. This is not consuming that much battery.</string>
+    <string name="foregroundservice_notification_button_stop">Stop service</string>
+    <string name="foregroundservice_notification_button_open_app">Open app</string>
+</resources>

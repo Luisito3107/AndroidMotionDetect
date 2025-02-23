@@ -1,0 +1,175 @@
+<resources>
+    <string name="app_name">MotionDetect</string>
+
+    <string name="predict_title">Predict</string>
+
+
+    <string name="train_title">Train</string>
+    <string name="train_status_title">Status</string>
+    <string name="train_status_delayedstart">Starting capture session in</string>
+    <string name="train_status_waiting">Waiting for Wear OS device to respond</string>
+    <string name="train_status_receiving">Received %d samples (in %d packets) from Wear OS device</string>
+    <string name="train_status_receiving_notification">Receiving data from Wear OS device. Open the app to see details or to stop the capture session.</string>
+    <string name="train_status_disabled">Train client not running</string>
+    <string name="train_status_hint">Train status</string>
+    <string name="train_action_title">Action to capture</string>
+    <string name="train_details_title">Session parameters</string>
+    <string name="train_details_alias">Session alias</string>
+    <string name="train_details_stopafter">Stop after (#)</string>
+    <string name="train_details_user">User name</string>
+    <string name="train_details_user_hand">Watch in hand</string>
+    <string name="train_details_user_hand_left">Left hand</string>
+    <string name="train_details_user_hand_right">Right hand</string>
+    <string name="train_details_samplesperpacket">Samples per packet</string>
+    <string name="train_details_samplesperpacket_hint">%d samples</string>
+    <string name="train_details_delayedstart">Delayed start in seconds</string>
+    <string name="train_details_delayedstart_hint">%d seconds</string>
+    <string name="train_toast_start">Training started</string>
+    <string name="train_toast_stop">Training stopped</string>
+    <string name="train_toast_stop_after">Training stopped after %d samples</string>
+    <string name="train_toast_stop_wearos_no_response">Training stopped after %d samples, no response from wear device in 10 seconds</string>
+    <string name="train_toast_error_no_alias">Please enter an alias for this session</string>
+    <string name="train_toast_error_no_user">Please enter a user for this session</string>
+    <string name="train_toast_error_no_wearos">Please select a Wear OS device in Settings</string>
+    <string name="train_toast_error_cant_exit">You can\'t leave Train while a capture session is running</string>
+    <string name="train_toast_error_creating_file">Error creating CSV file, training will not start</string>
+    <string name="train_toast_error_session_already_exists">A session with alias %s already exists</string>"
+
+
+    <string name="train_history_title">Train history</string>
+    <string name="train_history_session">Session %s</string>
+    <string name="train_history_session_count">%d samples</string>
+    <string name="train_history_session_dialog_title">Actions for session %s</string>
+    <string name="train_history_session_dialog_action_open">Open file</string>
+    <string name="train_history_session_dialog_action_share">Share file</string>
+    <string name="train_history_session_dialog_action_delete">Delete file</string>
+    <string name="train_history_session_delete_title">Deleting session %s</string>
+    <string name="train_history_session_delete_message">Are you sure you want to delete this session? This action cannot be undone.</string>
+    <string name="train_history_session_delete_confirm">Delete</string>
+    <string name="train_history_session_delete_cancel">Cancel</string>
+    <string name="train_history_session_delete_success">Session deleted</string>
+    <string name="train_history_session_delete_error">Error deleting session</string>
+    <string name="train_history_delete_all">Delete all sessions</string>
+    <string name="train_history_delete_all_title">You are about to delete all sessions</string>
+    <string name="train_history_delete_all_message">Are you sure you want to delete all sessions? This action cannot be undone.</string>
+    <string name="train_history_delete_all_confirm">Delete all</string>
+    <string name="train_history_delete_all_cancel">Cancel</string>
+    <string name="train_history_delete_all_success">All sessions deleted</string>
+    <string name="train_history_delete_all_error">Error deleting all sessions</string>
+
+
+
+    <string name="logs_title">Logs</string>
+
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_weardevice_title">Wear OS device</string>
+    <string name="settings_weardevice_select_connected">Connected devices</string>
+    <string name="settings_weardevice_select_saved">Wear OS selection saved</string>
+    <string name="settings_weardevice_select_clear">Clear selection</string>
+    <string name="settings_weardevice_select_cleared">Wear OS selection cleared</string>
+    <string name="settings_weardevice_select_test">Test connection</string>
+    <string name="settings_weardevice_select_test_inprogress">Testing… (%d s)</string>
+    <string name="settings_weardevice_select_test_success">Wear OS device replied in %d ms</string>
+    <string name="settings_weardevice_select_test_failure">No response from Wear OS device after %d seconds</string>
+
+
+    <string name="base_action_standing">Standing</string>
+    <string name="base_action_walking">Walking</string>
+    <string name="base_action_running">Running</string>
+    <string name="base_action_sitting">Sitting</string>
+    <string name="base_action_lying">Lying</string>
+
+
+    <string name="large_text">
+        "Material is the metaphor.\n\n"
+
+        "A material metaphor is the unifying theory of a rationalized space and a system of motion."
+        "The material is grounded in tactile reality, inspired by the study of paper and ink, yet "
+        "technologically advanced and open to imagination and magic.\n"
+        "Surfaces and edges of the material provide visual cues that are grounded in reality. The "
+        "use of familiar tactile attributes helps users quickly understand affordances. Yet the "
+        "flexibility of the material creates new affordances that supercede those in the physical "
+        "world, without breaking the rules of physics.\n"
+        "The fundamentals of light, surface, and movement are key to conveying how objects move, "
+        "interact, and exist in space and in relation to each other. Realistic lighting shows "
+        "seams, divides space, and indicates moving parts.\n\n"
+
+        "Bold, graphic, intentional.\n\n"
+
+        "The foundational elements of print based design typography, grids, space, scale, color, "
+        "and use of imagery guide visual treatments. These elements do far more than please the "
+        "eye. They create hierarchy, meaning, and focus. Deliberate color choices, edge to edge "
+        "imagery, large scale typography, and intentional white space create a bold and graphic "
+        "interface that immerse the user in the experience.\n"
+        "An emphasis on user actions makes core functionality immediately apparent and provides "
+        "waypoints for the user.\n\n"
+
+        "Motion provides meaning.\n\n"
+
+        "Motion respects and reinforces the user as the prime mover. Primary user actions are "
+        "inflection points that initiate motion, transforming the whole design.\n"
+        "All action takes place in a single environment. Objects are presented to the user without "
+        "breaking the continuity of experience even as they transform and reorganize.\n"
+        "Motion is meaningful and appropriate, serving to focus attention and maintain continuity. "
+        "Feedback is subtle yet clear. Transitions are efﬁcient yet coherent.\n\n"
+
+        "3D world.\n\n"
+
+        "The material environment is a 3D space, which means all objects have x, y, and z "
+        "dimensions. The z-axis is perpendicularly aligned to the plane of the display, with the "
+        "positive z-axis extending towards the viewer. Every sheet of material occupies a single "
+        "position along the z-axis and has a standard 1dp thickness.\n"
+        "On the web, the z-axis is used for layering and not for perspective. The 3D world is "
+        "emulated by manipulating the y-axis.\n\n"
+
+        "Light and shadow.\n\n"
+
+        "Within the material environment, virtual lights illuminate the scene. Key lights create "
+        "directional shadows, while ambient light creates soft shadows from all angles.\n"
+        "Shadows in the material environment are cast by these two light sources. In Android "
+        "development, shadows occur when light sources are blocked by sheets of material at "
+        "various positions along the z-axis. On the web, shadows are depicted by manipulating the "
+        "y-axis only. The following example shows the card with a height of 6dp.\n\n"
+
+        "Resting elevation.\n\n"
+
+        "All material objects, regardless of size, have a resting elevation, or default elevation "
+        "that does not change. If an object changes elevation, it should return to its resting "
+        "elevation as soon as possible.\n\n"
+
+        "Component elevations.\n\n"
+
+        "The resting elevation for a component type is consistent across apps (e.g., FAB elevation "
+        "does not vary from 6dp in one app to 16dp in another app).\n"
+        "Components may have different resting elevations across platforms, depending on the depth "
+        "of the environment (e.g., TV has a greater depth than mobile or desktop).\n\n"
+
+        "Responsive elevation and dynamic elevation offsets.\n\n"
+
+        "Some component types have responsive elevation, meaning they change elevation in response "
+        "to user input (e.g., normal, focused, and pressed) or system events. These elevation "
+        "changes are consistently implemented using dynamic elevation offsets.\n"
+        "Dynamic elevation offsets are the goal elevation that a component moves towards, relative "
+        "to the component’s resting state. They ensure that elevation changes are consistent "
+        "across actions and component types. For example, all components that lift on press have "
+        "the same elevation change relative to their resting elevation.\n"
+        "Once the input event is completed or cancelled, the component will return to its resting "
+        "elevation.\n\n"
+
+        "Avoiding elevation interference.\n\n"
+
+        "Components with responsive elevations may encounter other components as they move between "
+        "their resting elevations and dynamic elevation offsets. Because material cannot pass "
+        "through other material, components avoid interfering with one another any number of ways, "
+        "whether on a per component basis or using the entire app layout.\n"
+        "On a component level, components can move or be removed before they cause interference. "
+        "For example, a floating action button (FAB) can disappear or move off screen before a "
+        "user picks up a card, or it can move if a snackbar appears.\n"
+        "On the layout level, design your app layout to minimize opportunities for interference. "
+        "For example, position the FAB to one side of stream of a cards so the FAB won’t interfere "
+        "when a user tries to pick up one of cards.\n\n"
+    </string>
+    <string name="title_activity_train_history">TrainHistoryActivity</string>
+    <string name="action_settings">Settings</string>
+</resources>

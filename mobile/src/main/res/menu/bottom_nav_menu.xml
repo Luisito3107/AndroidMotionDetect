@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/navigation_predict"
+        android:icon="@drawable/selector_predict"
+        android:title="@string/predict_title" />
+
+    <item
+        android:id="@+id/navigation_train"
+        android:icon="@drawable/selector_train"
+        android:title="@string/train_title" />
+
+    <item
+        android:id="@+id/navigation_settings"
+        android:icon="@drawable/selector_settings"
+        android:title="@string/settings_title" />
+
+</menu>

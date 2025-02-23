@@ -1,0 +1,225 @@
+package com.luislezama.motiondetect
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
+import com.luislezama.motiondetect.databinding.ActivityTrainHistoryBinding
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+class TrainHistoryActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityTrainHistoryBinding
+    var fileList: MutableList<File> = mutableListOf()
+    private lateinit var adapter: CsvFileAdapter
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        binding = ActivityTrainHistoryBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        val toolbar: MaterialToolbar = findViewById(R.id.train_history_toolbar)
+        setSupportActionBar(toolbar)
+        toolbar.setNavigationOnClickListener {
+            finish()
+        }
+
+        val recyclerView = findViewById<RecyclerView>(R.id.train_history_recycler_view)
+        recyclerView.layoutManager = LinearLayoutManager(this)
+
+        fileList = filesDir.listFiles { file -> file.extension == "csv" }?.toMutableList() ?: mutableListOf()
+        adapter = CsvFileAdapter(fileList) { file, position ->
+            showFileOptionsDialog(this, file) {
+                fileList.removeAt(position)
+                adapter.notifyItemRemoved(position)
+            }
+        }
+        recyclerView.adapter = adapter
+    }
+
+
+
+    class CsvFileAdapter(
+        private val files: List<File>,
+        private val onItemClick: (File, Int) -> Unit
+    ) : RecyclerView.Adapter<CsvFileAdapter.CsvFileViewHolder>() {
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CsvFileViewHolder {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.train_history_file, parent, false)
+            return CsvFileViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: CsvFileViewHolder, position: Int) {
+            val file = files[position]
+            holder.bind(file)
+            holder.itemView.setOnClickListener { onItemClick(file, position) }
+        }
+
+        override fun getItemCount(): Int = files.size
+
+        class CsvFileViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+            private val sessionNameTextView: TextView = itemView.findViewById(R.id.train_history_session)
+            private val sessionActionIcon: ImageView = itemView.findViewById(R.id.train_history_action_icon)
+            private val sessionActionLabel: TextView = itemView.findViewById(R.id.train_history_action_label)
+            private val sessionDateTextView: TextView = itemView.findViewById(R.id.train_history_timestamp)
+            private val sessionUserTextView: TextView = itemView.findViewById(R.id.train_history_user)
+            private val sessionCountTextView: TextView = itemView.findViewById(R.id.train_history_count)
+            private val sessionFilesizeTextView: TextView = itemView.findViewById(R.id.train_history_filesize)
+
+            fun bind(file: File) {
+                val fileName = file.nameWithoutExtension
+                val parts = fileName.split("_")
+                val timestamp = (parts.getOrNull(0)?.toLongOrNull() ?: 0L)*1000
+                val sessionName = parts.getOrNull(1) ?: "???"
+
+                // Timestamp to readable date
+                val formattedDate = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(
+                    Date(timestamp)
+                )
+
+                val fileLines = file.readLines()
+
+                // Find action icon and label inside the first line of the file
+                fileLines.firstOrNull()?.let { line ->
+                    val parts = line.split(",")
+                    val action = parts.getOrNull(1) ?: "standing"
+                    // Get action enum instance
+                    Action.entries.find { it.value == action }?.let { actionEnum ->
+                        sessionActionIcon.setImageResource(actionEnum.icon)
+                        sessionActionLabel.text = itemView.context.getString(actionEnum.stringname)
+                    }
+
+                    val user = parts.getOrNull(3) ?: "Unknown"
+                    sessionUserTextView.text = user
+                }
+
+                // Count samples in file
+                val recordCount = fileLines.size //- 1 // -1 If header present
+                sessionCountTextView.text = itemView.context.getString(R.string.train_history_session_count, recordCount)
+
+                // Calculate file size in MB
+                sessionFilesizeTextView.text = "%.2f MB".format(file.length() / (1024.0 * 1024.0))
+
+                sessionNameTextView.text = sessionName
+                sessionDateTextView.text = formattedDate
+            }
+        }
+    }
+
+
+
+    // Session management
+    private fun showFileOptionsDialog(context: Context, file: File, onDelete: () -> Unit) {
+        val options = arrayOf(getString(R.string.train_history_session_dialog_action_open), getString(R.string.train_history_session_dialog_action_share), getString(R.string.train_history_session_dialog_action_delete))
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle(context.getString(R.string.train_history_session_dialog_title, file.name))
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> openCsvFile(context, file)
+                    1 -> shareCsvFile(context, file)
+                    2 -> confirmDeleteFile(context, file, onDelete)
+                }
+            }
+            .show()
+    }
+
+    private fun openCsvFile(context: Context, file: File) {
+        try {
+            val uri: Uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.provider",
+                file
+            )
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "text/csv")
+                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun shareCsvFile(context: Context, file: File) {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/csv"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, getString(R.string.train_history_session_dialog_action_share)))
+    }
+
+    private fun confirmDeleteFile(context: Context, file: File, onDelete: () -> Unit) {
+        MaterialAlertDialogBuilder(context)
+            .setTitle(getString(R.string.train_history_session_delete_title, file.name))
+            .setMessage(getString(R.string.train_history_session_delete_message))
+            .setPositiveButton(getString(R.string.train_history_session_delete_confirm)) { _, _ ->
+                if (file.delete()) {
+                    Snackbar.make(binding.root, getString(R.string.train_history_session_delete_success), Snackbar.LENGTH_SHORT).show()
+                    onDelete()
+                } else {
+                    Snackbar.make(binding.root, getString(R.string.train_history_session_delete_error), Snackbar.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(getString(R.string.train_history_session_delete_cancel), null)
+            .show()
+    }
+
+    private fun confirmDeleteAllFiles(context: Context, onDelete: () -> Unit) {
+        MaterialAlertDialogBuilder(context)
+            .setTitle(getString(R.string.train_history_delete_all))
+            .setMessage(getString(R.string.train_history_delete_all_message))
+            .setPositiveButton(getString(R.string.train_history_delete_all_confirm)) { _, _ ->
+                val filesDir = context.filesDir
+                val csvFiles = filesDir.listFiles { file -> file.extension == "csv" }
+                csvFiles?.forEach { it.delete() }
+                Snackbar.make(binding.root, getString(R.string.train_history_delete_all_success), Snackbar.LENGTH_SHORT).show()
+                onDelete()
+            }
+            .setNegativeButton(getString(R.string.train_history_delete_all_cancel), null)
+            .show()
+    }
+
+
+    // Train history button only visible in the train fragment
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.menu_train_history, menu)
+        return true
+    }
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.train_history_delete_all_btn -> {
+                confirmDeleteAllFiles(this) {
+                    fileList.clear()
+                    adapter.notifyDataSetChanged()
+                }
+                true
+            }
+            else -> {
+                super.onOptionsItemSelected(item)
+            }
+        }
+    }
+}

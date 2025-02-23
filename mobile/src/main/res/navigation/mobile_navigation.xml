@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@+id/navigation_predict">
+
+    <fragment
+        android:id="@+id/navigation_predict"
+        android:name="com.luislezama.motiondetect.PredictFragment"
+        android:label="@string/predict_title"
+        tools:layout="@layout/fragment_predict" />
+
+    <fragment
+        android:id="@+id/navigation_train"
+        android:name="com.luislezama.motiondetect.TrainFragment"
+        android:label="@string/train_title"
+        tools:layout="@layout/fragment_train" />
+
+    <fragment
+        android:id="@+id/navigation_settings"
+        android:name="com.luislezama.motiondetect.SettingsFragment"
+        android:label="@string/settings_title"
+        tools:layout="@layout/fragment_settings" />
+</navigation>
