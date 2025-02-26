@@ -6,6 +6,7 @@
     <string name="foregroundservice_status_stopped">Service is not running</string>
 
     <string name="foregroundservice_device_not_connected">No device connected</string>
+    <string name="foregroundservice_device_not_connected_refresh">Refresh</string>
 
     <string name="foregroundservice_permission_denied">Body sensors permission is not granted</string>
 

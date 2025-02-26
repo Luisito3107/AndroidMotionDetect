@@ -1,11 +1,14 @@
 package com.luislezama.motiondetect
 
-import android.app.Application
 import com.google.android.material.color.DynamicColors
+import com.luislezama.motiondetect.deviceconnection.ConnectionManager
 
-class App: Application() {
+class Application: android.app.Application() {
     override fun onCreate() {
         super.onCreate()
+
+        ConnectionManager.initialize(applicationContext)
+
         DynamicColors.applyToActivitiesIfAvailable(this)
     }
 }

@@ -1,14 +1,12 @@
 package com.luislezama.motiondetect.deviceconnection
 
-import android.content.Context
 import android.util.Log
-import com.google.android.gms.tasks.Tasks
-import com.google.android.gms.wearable.Wearable
+import com.google.android.gms.wearable.MessageClient
 import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
 import java.util.*
 
-class WearMessageQueue(private val context: Context, var nodeId: String?) {
+class MessageQueue(private val messageClient: MessageClient, private var node: PseudoNode?) {
     private val messageQueue: Queue<Pair<String, ByteArray>> = LinkedList()
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
     private var isSending = false
@@ -16,6 +14,18 @@ class WearMessageQueue(private val context: Context, var nodeId: String?) {
     fun sendMessage(path: String, data: ByteArray) {
         messageQueue.add(path to data)
         processQueue()
+    }
+
+    fun sendMessage(path: String, data: String) {
+        sendMessage(path, data.toByteArray())
+    }
+
+    fun sendMessage(path: String, data: Int) {
+        sendMessage(path, data.toString().toByteArray())
+    }
+
+    fun sendMessage(path: String) {
+        sendMessage(path, "".toByteArray())
     }
 
     private fun processQueue() {
@@ -28,19 +38,12 @@ class WearMessageQueue(private val context: Context, var nodeId: String?) {
                 val (path, data) = messageQueue.poll() ?: continue
 
                 try {
-                    if (nodeId == null) {
+                    if (node == null) {
                         Log.d("WearConnectionManager", "No device selected")
                     } else {
-                        val messageClient = Wearable.getMessageClient(context)
-                        messageClient.sendMessage(nodeId!!, path, data).await()
-                        Log.d("WearConnectionManager", "Message sent to ${/*node.displayName*/ nodeId!!}")
+                        messageClient.sendMessage(node!!.id, path, data).await()
+                        Log.d("WearConnectionManager", "Message sent to ${node!!.displayName}")
                     }
-
-                    /*val nodes = Tasks.await(Wearable.getNodeClient(context).connectedNodes)
-                    for (node in nodes) {
-                        Log.d("WearMessageQueue", "Sending message to ${node.displayName}")
-                        Tasks.await(Wearable.getMessageClient(context).sendMessage(node.id, path, data))
-                    }*/
                 } catch (e: Exception) {
                     Log.e("WearMessageQueue", "Error sending message", e)
                 }
@@ -48,5 +51,9 @@ class WearMessageQueue(private val context: Context, var nodeId: String?) {
 
             isSending = false
         }
+    }
+
+    fun setNode(node: PseudoNode) {
+        this.node = node
     }
 }

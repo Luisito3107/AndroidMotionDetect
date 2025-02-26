@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -32,26 +34,31 @@ import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import androidx.wear.tooling.preview.devices.WearDevices
-import com.google.android.gms.wearable.Node
 import com.luislezama.motiondetect.R
 import com.luislezama.motiondetect.data.ServiceControlViewModel
-import com.luislezama.motiondetect.data.WearForegroundServiceStatus
+import com.luislezama.motiondetect.data.WearForegroundService
+import com.luislezama.motiondetect.deviceconnection.ConnectionManager
+import com.luislezama.motiondetect.deviceconnection.PseudoNode
 import com.luislezama.motiondetect.theme.MotionDetectTheme
-
-
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 
 @Preview(showBackground = true, device = WearDevices.SMALL_ROUND, showSystemUi = true)
 @Composable
-fun ServiceControlScreen(viewModel: ServiceControlViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
+fun ServiceControlScreen(viewModel: ServiceControlViewModel = androidx.lifecycle.viewmodel.compose.viewModel(), isPreview: Boolean = LocalInspectionMode.current) {
     val context = LocalContext.current
     RequestPermissions(context)
 
     val serviceStatus by viewModel.serviceStatus.collectAsState()
-    val connectedDevice: Node? by viewModel.connectedDevice.collectAsState()
+    val connectedDevice: PseudoNode? by viewModel.connectedDevice.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.findConnectedDevice(context)
+        if (!isPreview) {
+            ConnectionManager.resetConnectedNode()
+            viewModel.validateServiceAvailability(context)
+        }
     }
 
     MotionDetectTheme {
@@ -63,11 +70,24 @@ fun ServiceControlScreen(viewModel: ServiceControlViewModel = androidx.lifecycle
             verticalArrangement = Arrangement.Center
         ) {
             when(serviceStatus) {
-                WearForegroundServiceStatus.PERMISSION_DENIED -> {
+                WearForegroundService.ServiceStatus.PERMISSION_DENIED -> {
                     Text(context.getString(R.string.foregroundservice_permission_denied), textAlign = TextAlign.Center)
                 }
-                WearForegroundServiceStatus.NOT_CONNECTED -> {
+                WearForegroundService.ServiceStatus.NOT_CONNECTED -> {
                     Text(context.getString(R.string.foregroundservice_device_not_connected), textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                ConnectionManager.resetConnectedNode()
+                                viewModel.validateServiceAvailability(context)
+                            }
+                        },
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.width(96.dp).height(36.dp)
+                    ) {
+                        Text(context.getString(R.string.foregroundservice_device_not_connected_refresh))
+                    }
                 }
                 else -> {
                     Button(
@@ -76,8 +96,8 @@ fun ServiceControlScreen(viewModel: ServiceControlViewModel = androidx.lifecycle
                         }
                     ) {
                         val serviceStatusIcon = when (serviceStatus) {
-                            WearForegroundServiceStatus.RUNNING -> R.drawable.ic_stop
-                            WearForegroundServiceStatus.LISTENING -> R.drawable.ic_stop
+                            WearForegroundService.ServiceStatus.RUNNING -> R.drawable.ic_stop
+                            WearForegroundService.ServiceStatus.LISTENING -> R.drawable.ic_stop
                             else -> R.drawable.ic_start
                         }
                         Icon(
@@ -91,9 +111,9 @@ fun ServiceControlScreen(viewModel: ServiceControlViewModel = androidx.lifecycle
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val serviceStatusText = when (serviceStatus) {
-                        WearForegroundServiceStatus.RUNNING -> context.getString(R.string.foregroundservice_status_running)
-                        WearForegroundServiceStatus.LISTENING -> context.getString(R.string.foregroundservice_status_listening)
-                        WearForegroundServiceStatus.STOPPED -> context.getString(R.string.foregroundservice_status_stopped)
+                        WearForegroundService.ServiceStatus.RUNNING -> context.getString(R.string.foregroundservice_status_running)
+                        WearForegroundService.ServiceStatus.LISTENING -> context.getString(R.string.foregroundservice_status_listening)
+                        WearForegroundService.ServiceStatus.STOPPED -> context.getString(R.string.foregroundservice_status_stopped)
                         else -> ""
                     }
                     Text(serviceStatusText, textAlign = TextAlign.Center)
@@ -120,7 +140,7 @@ fun RequestPermissions(context: Context) {
 
         if (permissions[Manifest.permission.BODY_SENSORS] == true) {
             val intent = Intent("com.luislezama.motiondetect.SERVICE_STATUS_CHANGED").apply {
-                putExtra("SERVICE_STATUS", WearForegroundServiceStatus.STOPPED)
+                putExtra("SERVICE_STATUS", WearForegroundService.ServiceStatus.STOPPED)
             }
             LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
         }

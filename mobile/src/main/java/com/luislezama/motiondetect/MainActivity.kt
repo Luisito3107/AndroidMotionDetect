@@ -18,7 +18,7 @@ import androidx.navigation.ui.NavigationUI.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.google.android.gms.wearable.Wearable
 import com.luislezama.motiondetect.databinding.ActivityMainBinding
-import com.luislezama.motiondetect.deviceconnection.WearConnectionManager
+import com.luislezama.motiondetect.deviceconnection.ConnectionManager
 import com.luislezama.motiondetect.deviceconnection.WearConnectionViewModel
 
 class MainActivity : AppCompatActivity() {
@@ -48,8 +48,8 @@ class MainActivity : AppCompatActivity() {
         setupActionBarWithNavController(this, navController, appBarConfiguration)
         navView.setupWithNavController(navController)
 
-        wearConnectionViewModel.wearConnectionManager = WearConnectionManager(this)
-        wearDataListener = WearDataListener(this, wearConnectionViewModel.wearConnectionManager)
+        wearConnectionViewModel.connectionManager = ConnectionManager(this)
+        wearDataListener = WearDataListener(this, wearConnectionViewModel.connectionManager)
         wearDataListener.setViewModel(wearConnectionViewModel)
 
         requestNotificationPermission()

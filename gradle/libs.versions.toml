@@ -1,6 +1,7 @@
 [versions]
 agp = "8.8.0"
 googleFlexbox = "3.0.0"
+gson = "2.12.1"
 kotlin = "2.0.0"
 coreKtx = "1.15.0"
 junit = "4.13.2"
@@ -27,11 +28,13 @@ navigationUiKtx = "2.8.5"
 kotlinxCoroutinesAndroid = "1.10.1"
 kotlinxCoroutinesPlayServices = "1.10.1"
 localbroadcastmanager = "1.0.0"
+material3Android = "1.3.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-viewmodel-savedstate = { module = "androidx.lifecycle:lifecycle-viewmodel-savedstate", version.ref = "lifecycleViewmodelComposeVersion" }
 google-flexbox = { module = "com.google.android.flexbox:flexbox", version.ref = "googleFlexbox" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 jetbrains-kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroidVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
@@ -61,6 +64,7 @@ androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "kotlinxCoroutinesPlayServices" }
 androidx-localbroadcastmanager = { group = "androidx.localbroadcastmanager", name = "localbroadcastmanager", version.ref = "localbroadcastmanager" }
+androidx-material3-android = { group = "androidx.compose.material3", name = "material3-android", version.ref = "material3Android" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

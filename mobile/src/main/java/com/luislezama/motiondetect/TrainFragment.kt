@@ -23,14 +23,14 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.slider.Slider
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
-import com.luislezama.motiondetect.deviceconnection.WearConnectionManager
+import com.luislezama.motiondetect.deviceconnection.ConnectionManager
 import com.luislezama.motiondetect.deviceconnection.WearConnectionViewModel
 import java.text.Normalizer
 
 
 class TrainFragment : Fragment() {
     private val wearConnectionViewModel: WearConnectionViewModel by activityViewModels()
-    private lateinit var wearConnectionManager: WearConnectionManager
+    private lateinit var connectionManager: ConnectionManager
 
     private lateinit var viewModel: TrainViewModel
     private var trainStatus = TrainStatus.IDLE
@@ -63,7 +63,7 @@ class TrainFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val trainLayout = inflater.inflate(R.layout.fragment_train, container, false)
-        wearConnectionManager = wearConnectionViewModel.wearConnectionManager
+        connectionManager = wearConnectionViewModel.connectionManager
 
         viewModel = ViewModelProvider(this).get(TrainViewModel::class.java)
 
@@ -151,7 +151,7 @@ class TrainFragment : Fragment() {
                     if (!sessionCSVFileCreated) {
                         Snackbar.make(root, getString(R.string.train_toast_error_creating_file), Snackbar.LENGTH_SHORT).show()
                         viewModel.cancelDelayedStartCountdown()
-                        wearConnectionManager.stopSensorCapture()
+                        connectionManager.stopSensorCapture()
                     }
                 }
                 TrainStatus.WAITING -> {
@@ -177,7 +177,7 @@ class TrainFragment : Fragment() {
         toggleBtn.setOnClickListener {
             when (trainStatus) {
                 TrainStatus.IDLE -> {
-                    if (wearConnectionManager.getSelectedWearDeviceFromSharedPreferences(root.context).isNullOrEmpty()) {
+                    if (connectionManager.getSelectedWearDeviceFromSharedPreferences(root.context).isNullOrEmpty()) {
                         Snackbar.make(root, getString(R.string.train_toast_error_no_wearos), Snackbar.LENGTH_SHORT).show()
                     } else if (viewModel.alias.value.isNullOrEmpty()) {
                         Snackbar.make(root, getString(R.string.train_toast_error_no_alias), Snackbar.LENGTH_SHORT).show()
@@ -189,7 +189,7 @@ class TrainFragment : Fragment() {
                         Snackbar.make(root, getString(R.string.train_toast_error_session_already_exists, viewModel.alias.value), Snackbar.LENGTH_SHORT).show()
                     } else {
                         viewModel.startDelayedStartCountdown {
-                            wearConnectionManager.startSensorCapture(viewModel.samplesPerPacket.value!!)
+                            connectionManager.startSensorCapture(viewModel.samplesPerPacket.value!!)
                             viewModel.setStatus(TrainStatus.WAITING)
                             Snackbar.make(root, getString(R.string.train_toast_start), Snackbar.LENGTH_SHORT).show()
                         }
@@ -198,7 +198,7 @@ class TrainFragment : Fragment() {
                 else -> {
                     Snackbar.make(root, getString(R.string.train_toast_stop_after, viewModel.appendedDataCount.value), Snackbar.LENGTH_SHORT).show()
                     viewModel.cancelDelayedStartCountdown()
-                    wearConnectionManager.stopSensorCapture()
+                    connectionManager.stopSensorCapture()
                     wearConnectionViewModel.recievedSensorMessages.value = 0
                 }
             }
@@ -226,7 +226,7 @@ class TrainFragment : Fragment() {
                         if ((viewModel.stopAfter.value ?: 0) > 0) {
                             if (appendedDataCount >= viewModel.stopAfter.value!!) {
                                 viewModel.cancelDelayedStartCountdown()
-                                wearConnectionManager.stopSensorCapture()
+                                connectionManager.stopSensorCapture()
                                 wearConnectionViewModel.recievedSensorMessages.value = 0
                                 Snackbar.make(
                                     root,

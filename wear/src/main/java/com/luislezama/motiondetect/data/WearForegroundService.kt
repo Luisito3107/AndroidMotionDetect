@@ -20,49 +20,59 @@ import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.CapabilityInfo
 import com.google.android.gms.wearable.Wearable
 import com.luislezama.motiondetect.R
-import com.luislezama.motiondetect.deviceconnection.WearConnectionManager
+import com.luislezama.motiondetect.deviceconnection.ConnectionManager
+import com.luislezama.motiondetect.deviceconnection.DataListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
+object WearForegroundServiceHolder {
+    var service: WearForegroundService? = null
+}
+
+
 class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedListener {
+    enum class ServiceStatus {
+        RUNNING,
+        LISTENING,
+        STOPPED,
+        NOT_CONNECTED,
+        PERMISSION_DENIED
+    }
 
     companion object {
-        fun getServiceStatus(context: Context): WearForegroundServiceStatus {
+        fun getServiceStatus(context: Context): ServiceStatus {
             val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             val isRunning = activityManager.getRunningServices(Integer.MAX_VALUE)
                 .any { it.service.className == WearForegroundService::class.java.name }
 
-            val runningServiceStatus = ForegroundServiceHolder.service?.getServiceStatus() // Get the current service status (if any)
+            val runningServiceStatus = WearForegroundServiceHolder.service?.getServiceStatus() // Get the current service status (if any)
             return when {
-                !isRunning -> WearForegroundServiceStatus.STOPPED
-                runningServiceStatus == WearForegroundServiceStatus.RUNNING -> WearForegroundServiceStatus.RUNNING
-                else -> WearForegroundServiceStatus.LISTENING
+                !isRunning -> ServiceStatus.STOPPED
+                runningServiceStatus == ServiceStatus.RUNNING -> ServiceStatus.RUNNING
+                else -> ServiceStatus.LISTENING
             }
         }
+
+        private const val REQUEST_TIMEOUT_IN_MS = 10000L
+        private const val SERVICE_NOTIFICATION_ID = 1
+        private const val SERVICE_NOTIFICATION_CHANNEL_ID = "wear_service_channel"
     }
 
 
 
 
 
-    private var serviceStatus: WearForegroundServiceStatus = WearForegroundServiceStatus.STOPPED
-    private lateinit var wearConnectionManager: WearConnectionManager
-    private lateinit var mobileDataListener: MobileDataListener
-
-    private var lastMobileConfirmationTime: Long = 0
-    private val requestTimeoutInMs: Long = 10000 // Stop sending data if no mobile confirmation is received in 10 seconds
-
-    private val NOTIFICATION_ID = 1
-    private val CHANNEL_ID = "wear_service_channel"
+    private var serviceStatus: ServiceStatus = ServiceStatus.STOPPED
+    private lateinit var dataListener: DataListener
+    private var lastCaptureConfirmationTime: Long = 0
 
     private var samplesPerPacket = 100
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
     private var gyroscope: Sensor? = null
-
 
 
     // Sensor management and data processing
@@ -107,7 +117,7 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
     private fun sendDataIfReady() {
         if (sensorDataBuffer.size >= samplesPerPacket) {
             val message = sensorDataBuffer.joinToString("|")
-            wearConnectionManager.wearMessageQueue.sendMessage( "/sensor_data", message.toByteArray())
+            ConnectionManager.messageQueue?.sendMessage( "/sensor_data", message.toByteArray())
             sensorDataBuffer.clear()
         }
     }
@@ -116,14 +126,14 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
         this.samplesPerPacket = samplesPerPacket
         accelerometer?.let { sensorManager.registerListener(sensorListener, it, SensorManager.SENSOR_DELAY_FASTEST) }
         gyroscope?.let { sensorManager.registerListener(sensorListener, it, SensorManager.SENSOR_DELAY_FASTEST) }
-        setServiceStatus(WearForegroundServiceStatus.RUNNING)
+        setServiceStatus(ServiceStatus.RUNNING)
 
-        lastMobileConfirmationTime = System.currentTimeMillis()
-        val timeoutChecker = CoroutineScope(Dispatchers.IO).launch {
-            while (serviceStatus == WearForegroundServiceStatus.RUNNING) {
-                delay(requestTimeoutInMs)
-                if (System.currentTimeMillis() - lastMobileConfirmationTime > requestTimeoutInMs) {
-                    Log.d("MobileDataListener", "No confirmation from mobile, stopping capture")
+        lastCaptureConfirmationTime = System.currentTimeMillis()
+        CoroutineScope(Dispatchers.IO).launch {
+            while (serviceStatus == ServiceStatus.RUNNING) {
+                delay(REQUEST_TIMEOUT_IN_MS)
+                if (System.currentTimeMillis() - lastCaptureConfirmationTime > REQUEST_TIMEOUT_IN_MS) {
+                    Log.d("WearForegroundService", "No confirmation from mobile, stopping sensor capture")
                     stopCapturingSensors()
                     break
                 }
@@ -133,17 +143,17 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
 
     fun stopCapturingSensors() {
         sensorManager.unregisterListener(sensorListener) // Stop accelerometer and gyroscope updates
-        setServiceStatus(WearForegroundServiceStatus.LISTENING)
+        setServiceStatus(ServiceStatus.LISTENING)
     }
 
-    fun resetLastRequestTime() {
-        lastMobileConfirmationTime = System.currentTimeMillis()
+    fun resetLastCaptureConfirmationTime() {
+        lastCaptureConfirmationTime = System.currentTimeMillis()
     }
 
 
 
     // Service status management
-    private fun setServiceStatus(status: WearForegroundServiceStatus) {
+    private fun setServiceStatus(status: ServiceStatus) {
         serviceStatus = status
         updateNotification(status)
         val intent = Intent("com.luislezama.motiondetect.SERVICE_STATUS_CHANGED")
@@ -151,29 +161,29 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
 
-    fun getServiceStatus(): WearForegroundServiceStatus {
+    fun getServiceStatus(): ServiceStatus {
         return serviceStatus
     }
 
 
 
     // Notification management
-    private fun createNotification(status: WearForegroundServiceStatus = serviceStatus): Notification {
+    private fun createNotification(status: ServiceStatus = serviceStatus): Notification {
         val notificationText = when (status) {
-            WearForegroundServiceStatus.RUNNING -> getString(R.string.foregroundservice_notification_content_running)
-            WearForegroundServiceStatus.LISTENING -> getString(R.string.foregroundservice_notification_content_listening)
+            ServiceStatus.RUNNING -> getString(R.string.foregroundservice_notification_content_running)
+            ServiceStatus.LISTENING -> getString(R.string.foregroundservice_notification_content_listening)
             else -> ""
         }
 
         val channel = NotificationChannel(
-            CHANNEL_ID,
+            SERVICE_NOTIFICATION_CHANNEL_ID,
             "Wear OS Service",
             NotificationManager.IMPORTANCE_LOW
         )
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat.Builder(this, SERVICE_NOTIFICATION_CHANNEL_ID)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(notificationText)
             .setSmallIcon(R.drawable.splash_icon)
@@ -184,11 +194,11 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
             .build()
     }
 
-    private fun updateNotification(status: WearForegroundServiceStatus = serviceStatus) {
-        if (status in listOf(WearForegroundServiceStatus.RUNNING, WearForegroundServiceStatus.LISTENING)) {
+    private fun updateNotification(status: ServiceStatus = serviceStatus) {
+        if (status in listOf(ServiceStatus.RUNNING, ServiceStatus.LISTENING)) {
             val notificationManager = getSystemService(NotificationManager::class.java)
             val notification = createNotification(status)
-            notificationManager.notify(NOTIFICATION_ID, notification)
+            notificationManager.notify(SERVICE_NOTIFICATION_ID, notification)
         }
     }
 
@@ -217,12 +227,11 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
     override fun onCreate() {
         super.onCreate()
 
-        // Start WearConnectionManager
-        wearConnectionManager = WearConnectionManager(this)
+        // Create a DataListener instance and register its possible callbacks to receive messages from the mobile device
+        dataListener = DataListener(ConnectionManager)
+            .registerCallbacks(this.dataListenerCallbacks)
 
-        // Add MobileDataListener to receive messages from the mobile device
-        mobileDataListener = MobileDataListener(this, wearConnectionManager)
-        Wearable.getMessageClient(this).addListener(mobileDataListener)
+        Wearable.getMessageClient(this).addListener(dataListener)
         Wearable.getCapabilityClient(this).addListener(this, "data_capture_service")
 
         // Initialize sensors
@@ -231,25 +240,25 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
         gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
         // Store instance in ForegroundServiceHolder and start as a foreground service
-        ForegroundServiceHolder.service = this
+        WearForegroundServiceHolder.service = this
         startForeground(1, createNotification()) // Service will run in foreground
-        setServiceStatus(WearForegroundServiceStatus.LISTENING)
+        setServiceStatus(ServiceStatus.LISTENING)
     }
 
     override fun onDestroy() {
         stopCapturingSensors()
-        setServiceStatus(WearForegroundServiceStatus.STOPPED)
+        setServiceStatus(ServiceStatus.STOPPED)
 
         stopForeground(STOP_FOREGROUND_REMOVE) // Remove notification
         val notificationManager = getSystemService(NotificationManager::class.java)
-        notificationManager.cancel(NOTIFICATION_ID)
+        notificationManager.cancel(SERVICE_NOTIFICATION_ID)
 
         super.onDestroy()
 
-        ForegroundServiceHolder.service = null
+        WearForegroundServiceHolder.service = null
 
-        // Remove MobileDataListener to stop receiving messages
-        Wearable.getMessageClient(this).removeListener(mobileDataListener)
+        // Remove DataListener to stop receiving messages
+        Wearable.getMessageClient(this).removeListener(dataListener)
         Wearable.getCapabilityClient(this).removeListener(this, "data_capture_service")
     }
 
@@ -264,15 +273,46 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
         if (capabilityInfo.nodes.isEmpty()) {
             Log.d("WearForegroundService", "Mobile device disconnected, stopping service")
             val intent = Intent("com.luislezama.motiondetect.SERVICE_STATUS_CHANGED")
-            intent.putExtra("SERVICE_STATUS", WearForegroundServiceStatus.NOT_CONNECTED)
+            intent.putExtra("SERVICE_STATUS", ServiceStatus.NOT_CONNECTED)
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
             stopSelf() // Stop the service if the mobile device is disconnected
         } else {
             Log.d("WearForegroundService", "Mobile device connected")
             val intent = Intent("com.luislezama.motiondetect.SERVICE_STATUS_CHANGED")
-            intent.putExtra("SERVICE_STATUS", WearForegroundServiceStatus.STOPPED)
+            intent.putExtra("SERVICE_STATUS", ServiceStatus.STOPPED)
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
             stopSelf()
         }
     }
+
+
+
+    // DataListener callbacks
+    private val dataListenerCallbacks: Map<String, (String?) -> Unit> = mapOf(
+        "/test_connection" to {
+            Log.d("WearForegroundService DataListener", "Testing connection")
+            CoroutineScope(Dispatchers.IO).launch {
+                ConnectionManager.testConnectionResponse()
+            }
+        },
+
+        "/start_capture" to { samplesPerPacketString ->
+            val samplesPerPacket = samplesPerPacketString?.toInt() ?: 10
+            WearForegroundServiceHolder.service?.let { service ->
+                Log.d("WearForegroundService DataListener", "Starting sensor capture, service will send $samplesPerPacket samples per packet")
+                service.startCapturingSensors(samplesPerPacket)
+                ConnectionManager.confirmSensorCaptureStarted()
+            }
+        },
+
+        "/more_sensor_data" to {
+            Log.d("WearForegroundService DataListener", "Mobile confirmed it wants more sensor data")
+            WearForegroundServiceHolder.service?.resetLastCaptureConfirmationTime()
+        },
+
+        "/stop_capture" to {
+            Log.d("WearForegroundService DataListener", "Stopping sensor capture")
+            WearForegroundServiceHolder.service?.stopCapturingSensors()
+        }
+    )
 }

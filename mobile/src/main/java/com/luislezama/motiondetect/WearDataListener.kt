@@ -2,7 +2,7 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.wearable.*
-import com.luislezama.motiondetect.deviceconnection.WearConnectionManager
+import com.luislezama.motiondetect.deviceconnection.ConnectionManager
 import com.luislezama.motiondetect.deviceconnection.WearConnectionViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 
 class WearDataListener(
     private val context: Context,
-    private val wearConnectionManager: WearConnectionManager
+    private val connectionManager: ConnectionManager
 ) : MessageClient.OnMessageReceivedListener {
 
     private lateinit var wearConnectionViewModel: WearConnectionViewModel
@@ -27,7 +27,7 @@ class WearDataListener(
 
         when (messageEvent.path) {
             "/test_connection_response" -> {
-                wearConnectionManager.onConnectionResponseReceived()
+                connectionManager.onConnectionResponseReceived()
             }
 
             "/capture_started" -> {
@@ -45,7 +45,7 @@ class WearDataListener(
                     wearConnectionViewModel.sensorDataString.value = receivedMessage
 
                     if (wearConnectionViewModel.recievedSensorMessages.value!! % sendConfirmationEachNMessages == 0) { // Reply each N messages
-                        wearConnectionManager.wearMessageQueue.sendMessage("/more_sensor_data", "".toByteArray())
+                        connectionManager.messageQueue.sendMessage("/more_sensor_data", "".toByteArray())
                     }
                 }
             }
@@ -54,7 +54,7 @@ class WearDataListener(
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
         CoroutineScope(Dispatchers.IO).launch {
-            val selectedNodeId = wearConnectionManager.getSelectedWearDevice(validate = false) // ID del reloj guardado
+            val selectedNodeId = connectionManager.getSelectedNode(validate = false) // ID del reloj guardado
             val senderNodeId = messageEvent.sourceNodeId // ID del nodo que envió el mensaje
 
             if (selectedNodeId == null) {

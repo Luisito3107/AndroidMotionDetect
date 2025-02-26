@@ -4,7 +4,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 
 class WearConnectionViewModel : ViewModel() {
-    lateinit var wearConnectionManager: WearConnectionManager
+    lateinit var connectionManager: ConnectionManager
 
     var captureStarted = MutableLiveData<Boolean>()
     var samplesPerPacket = MutableLiveData<Int>()
