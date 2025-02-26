@@ -25,7 +25,7 @@ class ServiceControlViewModel(private val application: Application? = null) : Vi
     private val _connectedDevice = MutableStateFlow<PseudoNode?>(null)
     val connectedDevice: StateFlow<PseudoNode?> = _connectedDevice.asStateFlow()
 
-    private val _serviceStatus = MutableStateFlow(WearForegroundService.ServiceStatus.RUNNING)
+    private val _serviceStatus = MutableStateFlow(WearForegroundService.ServiceStatus.STOPPED)
     val serviceStatus: StateFlow<WearForegroundService.ServiceStatus> = _serviceStatus.asStateFlow()
 
 
