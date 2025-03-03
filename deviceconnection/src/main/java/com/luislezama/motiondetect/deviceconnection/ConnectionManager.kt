@@ -1,5 +1,6 @@
 package com.luislezama.motiondetect.deviceconnection
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -19,8 +20,10 @@ object ConnectionManager {
     const val TESTING_TIMEOUT = 10 // seconds
 
     lateinit var applicationContext: Context
-    private var isWearOS = false
+    var isWearOS = false
     private var sharedPreferences: SharedPreferences? = null
+
+    @SuppressLint("StaticFieldLeak")
     private var nodeClient: NodeClient? = null
 
     lateinit var messageQueue: MessageQueue
@@ -83,36 +86,6 @@ object ConnectionManager {
 
 
 
-    // Sensor capture
-    fun requestSensorCaptureStart(samplesPerPacket: Int) {
-        if (!isWearOS && messageQueue != null) {
-            messageQueue!!.sendMessage("/start_capture", samplesPerPacket)
-        }
-    }
-
-    fun confirmSensorCaptureStarted() {
-        if (isWearOS && messageQueue != null) {
-            messageQueue!!.sendMessage("/sensor_capture_started")
-        }
-    }
-
-    fun confirmMoreSensorDataNeeded() {
-        if (!isWearOS && messageQueue != null) {
-            messageQueue!!.sendMessage("/more_sensor_data")
-        }
-    }
-
-    fun requestSensorCaptureStop() {
-        if (!isWearOS && messageQueue != null) {
-            messageQueue!!.sendMessage("/stop_capture")
-        }
-    }
-
-    fun sendSensorData(data: String) {
-        if (isWearOS && messageQueue != null) {
-            messageQueue!!.sendMessage("/sensor_data", data.toByteArray())
-        }
-    }
 
 
 

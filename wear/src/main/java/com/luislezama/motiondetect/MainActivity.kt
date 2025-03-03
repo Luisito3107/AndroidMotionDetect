@@ -3,17 +3,11 @@ package com.luislezama.motiondetect
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModelProvider
 import com.luislezama.motiondetect.data.ServiceControlViewModel
 import com.luislezama.motiondetect.data.ServiceControlViewModelFactory
-import com.luislezama.motiondetect.deviceconnection.ConnectionManager
-import com.luislezama.motiondetect.deviceconnection.WearConnectionViewModel
 import com.luislezama.motiondetect.ui.ServiceControlScreen
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {

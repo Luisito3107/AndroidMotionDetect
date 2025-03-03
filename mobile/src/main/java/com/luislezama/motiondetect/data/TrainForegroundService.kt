@@ -141,8 +141,8 @@ class TrainForegroundService : Service() {
 
     // Service status management
     private fun setServiceStatus(status: ServiceStatus) {
-        if (status == ServiceStatus.STOPPED && getServiceStatus() == ServiceStatus.RECEIVING) {
-            ConnectionManager.requestSensorCaptureStop()
+        if (status == ServiceStatus.STOPPED && getServiceStatus() in listOf(ServiceStatus.WAITING, ServiceStatus.RECEIVING)) {
+            ConnectionManager.messageQueue.requestSensorCaptureStop()
         }
 
         _serviceStatus.value = status
@@ -316,7 +316,7 @@ class TrainForegroundService : Service() {
         // Start delayed start countdown
         startDelayedStartCountdown {
             setServiceStatus(ServiceStatus.WAITING)
-            ConnectionManager.requestSensorCaptureStart(samplesPerPacket)
+            ConnectionManager.messageQueue.requestSensorCaptureStart(samplesPerPacket)
             startWearMessageTimeoutChecker { // If no response from Wear OS is received, stop service
                 stopReason = ServiceStopReason.NO_RESPONSE_FROM_WEAROS
                 sendTimeoutNotification(this)
@@ -530,7 +530,7 @@ class TrainForegroundService : Service() {
                     val currentTime = System.currentTimeMillis()
                     if (currentTime - lastConfirmationSentTime >= CONFIRMATION_TIME_INTERVAL) {
                         Log.d("SensorDataReceiverService DataListener", "Sending confirmation to Wear OS device")
-                        ConnectionManager.confirmMoreSensorDataNeeded()
+                        ConnectionManager.messageQueue.confirmMoreSensorDataNeeded()
                         lastConfirmationSentTime = currentTime
                     }
                 }

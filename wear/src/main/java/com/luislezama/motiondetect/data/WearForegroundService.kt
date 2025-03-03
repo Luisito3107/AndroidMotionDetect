@@ -116,8 +116,8 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
 
     private fun sendDataIfReady() {
         if (sensorDataBuffer.size >= samplesPerPacket) {
-            val message = sensorDataBuffer.joinToString("|")
-            ConnectionManager.sendSensorData(message)
+            val sensorDataString = sensorDataBuffer.joinToString("|")
+            ConnectionManager.messageQueue.sendSensorData(sensorDataString)
             sensorDataBuffer.clear()
         }
     }
@@ -300,7 +300,7 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
             val samplesPerPacket = samplesPerPacketString?.toInt() ?: 10
             WearForegroundServiceHolder.service?.let { service ->
                 Log.d("WearForegroundService DataListener", "Starting sensor capture, service will send $samplesPerPacket samples per packet")
-                ConnectionManager.confirmSensorCaptureStarted()
+                ConnectionManager.messageQueue.confirmSensorCaptureStarted()
                 service.startCapturingSensors(samplesPerPacket)
             }
         },

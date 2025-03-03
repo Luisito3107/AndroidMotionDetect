@@ -2,6 +2,7 @@ package com.luislezama.motiondetect.deviceconnection
 
 import android.util.Log
 import com.google.android.gms.wearable.MessageClient
+import com.luislezama.motiondetect.deviceconnection.ConnectionManager.isWearOS
 import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
 import java.util.*
@@ -55,5 +56,37 @@ class MessageQueue(private val messageClient: MessageClient, private var node: P
 
     fun setNode(node: PseudoNode?) {
         this.node = node
+    }
+
+
+
+    // Default messages from mobile device
+    fun requestSensorCaptureStart(samplesPerPacket: Int) {
+        if (!isWearOS && node != null) {
+            sendMessage("/start_capture", samplesPerPacket)
+        }
+    }
+    fun confirmMoreSensorDataNeeded() {
+        if (!isWearOS && node != null) {
+            sendMessage("/more_sensor_data")
+        }
+    }
+    fun requestSensorCaptureStop() {
+        if (!isWearOS && node != null) {
+            sendMessage("/stop_capture")
+        }
+    }
+
+
+    // Default messages from Wear OS device
+    fun confirmSensorCaptureStarted() {
+        if (isWearOS && node != null) {
+            sendMessage("/sensor_capture_started")
+        }
+    }
+    fun sendSensorData(sensorData: String) {
+        if (isWearOS && node != null) {
+            sendMessage("/sensor_data", sensorData)
+        }
     }
 }
