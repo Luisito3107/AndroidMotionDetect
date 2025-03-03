@@ -53,7 +53,7 @@ class MessageQueue(private val messageClient: MessageClient, private var node: P
         }
     }
 
-    fun setNode(node: PseudoNode) {
+    fun setNode(node: PseudoNode?) {
         this.node = node
     }
 }

@@ -52,6 +52,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.google.flexbox)
+    implementation(libs.kotlin.reflect)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

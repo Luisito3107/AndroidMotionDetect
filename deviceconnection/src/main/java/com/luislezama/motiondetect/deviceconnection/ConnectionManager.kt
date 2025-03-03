@@ -84,14 +84,14 @@ object ConnectionManager {
 
 
     // Sensor capture
-    fun startSensorCapture(samplesPerPacket: Int) {
+    fun requestSensorCaptureStart(samplesPerPacket: Int) {
         if (!isWearOS && messageQueue != null) {
             messageQueue!!.sendMessage("/start_capture", samplesPerPacket)
         }
     }
 
     fun confirmSensorCaptureStarted() {
-        if (!isWearOS && messageQueue != null) {
+        if (isWearOS && messageQueue != null) {
             messageQueue!!.sendMessage("/sensor_capture_started")
         }
     }
@@ -102,7 +102,7 @@ object ConnectionManager {
         }
     }
 
-    fun stopSensorCapture() {
+    fun requestSensorCaptureStop() {
         if (!isWearOS && messageQueue != null) {
             messageQueue!!.sendMessage("/stop_capture")
         }
@@ -122,6 +122,10 @@ object ConnectionManager {
         sharedPreferences?.edit()
             ?.putString("selected_wear_node", node.toString())
             ?.apply()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            resetConnectedNode()
+        }
     }
 
     // Clear selected wear device in shared preferences
@@ -129,6 +133,10 @@ object ConnectionManager {
         sharedPreferences?.edit()
             ?.remove("selected_wear_node")
             ?.apply()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            resetConnectedNode()
+        }
     }
 
     // Get selected wear device from shared preferences and check if it's still connected
@@ -180,10 +188,16 @@ object ConnectionManager {
         }
     }
 
+    // Reset connected node
     suspend fun resetConnectedNode() {
         connectedNode = getSelectedNode(true)
-        if (connectedNode != null) {
-            messageQueue.setNode(connectedNode!!)
+        messageQueue.setNode(connectedNode)
+    }
+
+    // Refresh connected node
+    fun refreshConnectedNode() {
+        CoroutineScope(Dispatchers.IO).launch {
+            resetConnectedNode()
         }
     }
 }

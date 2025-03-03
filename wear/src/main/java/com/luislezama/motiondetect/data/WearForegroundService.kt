@@ -56,7 +56,7 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
             }
         }
 
-        private const val REQUEST_TIMEOUT_IN_MS = 10000L
+        private const val MOBILE_CONFIRMATION_TIMEOUT_IN_MS = 15000L // Sensor capture will stop after 15 seconds of no confirmation from mobile
         private const val SERVICE_NOTIFICATION_ID = 1
         private const val SERVICE_NOTIFICATION_CHANNEL_ID = "wear_service_channel"
     }
@@ -117,7 +117,7 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
     private fun sendDataIfReady() {
         if (sensorDataBuffer.size >= samplesPerPacket) {
             val message = sensorDataBuffer.joinToString("|")
-            ConnectionManager.messageQueue?.sendMessage( "/sensor_data", message.toByteArray())
+            ConnectionManager.sendSensorData(message)
             sensorDataBuffer.clear()
         }
     }
@@ -131,8 +131,8 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
         lastCaptureConfirmationTime = System.currentTimeMillis()
         CoroutineScope(Dispatchers.IO).launch {
             while (serviceStatus == ServiceStatus.RUNNING) {
-                delay(REQUEST_TIMEOUT_IN_MS)
-                if (System.currentTimeMillis() - lastCaptureConfirmationTime > REQUEST_TIMEOUT_IN_MS) {
+                delay(MOBILE_CONFIRMATION_TIMEOUT_IN_MS)
+                if (System.currentTimeMillis() - lastCaptureConfirmationTime > MOBILE_CONFIRMATION_TIMEOUT_IN_MS) {
                     Log.d("WearForegroundService", "No confirmation from mobile, stopping sensor capture")
                     stopCapturingSensors()
                     break
@@ -300,8 +300,8 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
             val samplesPerPacket = samplesPerPacketString?.toInt() ?: 10
             WearForegroundServiceHolder.service?.let { service ->
                 Log.d("WearForegroundService DataListener", "Starting sensor capture, service will send $samplesPerPacket samples per packet")
-                service.startCapturingSensors(samplesPerPacket)
                 ConnectionManager.confirmSensorCaptureStarted()
+                service.startCapturingSensors(samplesPerPacket)
             }
         },
 
@@ -311,7 +311,7 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
         },
 
         "/stop_capture" to {
-            Log.d("WearForegroundService DataListener", "Stopping sensor capture")
+            Log.d("WearForegroundService DataListener", "Stopping sensor capture (requested by mobile)")
             WearForegroundServiceHolder.service?.stopCapturingSensors()
         }
     )

@@ -1,6 +1,6 @@
 package com.luislezama.motiondetect
 
-import android.app.NotificationChannel
+/*import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -58,4 +58,4 @@ class TrainingService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(serviceChannel)
     }
-}
+}*/

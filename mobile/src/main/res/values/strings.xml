@@ -9,7 +9,6 @@
     <string name="train_status_delayedstart">Starting capture session in</string>
     <string name="train_status_waiting">Waiting for Wear OS device to respond</string>
     <string name="train_status_receiving">Received %d samples (in %d packets) from Wear OS device</string>
-    <string name="train_status_receiving_notification">Receiving data from Wear OS device. Open the app to see details or to stop the capture session.</string>
     <string name="train_status_disabled">Train client not running</string>
     <string name="train_status_hint">Train status</string>
     <string name="train_action_title">Action to capture</string>
@@ -27,13 +26,23 @@
     <string name="train_toast_start">Training started</string>
     <string name="train_toast_stop">Training stopped</string>
     <string name="train_toast_stop_after">Training stopped after %d samples</string>
-    <string name="train_toast_stop_wearos_no_response">Training stopped after %d samples, no response from wear device in 10 seconds</string>
+    <string name="train_toast_stop_wearos_no_response">Training stopped after %d samples, no response from Wear OS device in %d seconds</string>
     <string name="train_toast_error_no_alias">Please enter an alias for this session</string>
     <string name="train_toast_error_no_user">Please enter a user for this session</string>
     <string name="train_toast_error_no_wearos">Please select a Wear OS device in Settings</string>
     <string name="train_toast_error_cant_exit">You can\'t leave Train while a capture session is running</string>
     <string name="train_toast_error_creating_file">Error creating CSV file, training will not start</string>
-    <string name="train_toast_error_session_already_exists">A session with alias %s already exists</string>"
+    <string name="train_toast_error_session_already_exists">A session with alias %s already exists</string>
+    <string name="train_service_notification_channel_name">Training service</string>
+    <string name="train_service_notification_title">Training session running</string>
+    <string name="train_service_notification_content_delayedstart">Starting capture session in %d seconds</string>
+    <string name="train_service_notification_content_waiting">Waiting for Wear OS device to respond</string>
+    <string name="train_service_notification_content_receiving">Received ~%d samples (in ~%d packets) from Wear OS device. Open app to see a more accurate count.</string>
+    <string name="train_service_notification_button_stop">Stop</string>
+    <string name="train_service_notification_button_open_app">Open app</string>
+    <string name="train_service_notification_timeout_title">Training session stopped</string>
+    <string name="train_service_notification_timeout_content">Training stopped after %d samples, no response from Wear OS device in %d seconds.</string>
+
 
 
     <string name="train_history_title">Train history</string>

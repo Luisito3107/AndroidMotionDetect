@@ -1,4 +1,4 @@
-package com.luislezama.motiondetect
+package com.luislezama.motiondetect.ui
 
 import android.content.Context
 import android.content.Intent
@@ -18,6 +18,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import com.luislezama.motiondetect.R
+import com.luislezama.motiondetect.data.Action
+import com.luislezama.motiondetect.data.CSVLine
 import com.luislezama.motiondetect.databinding.ActivityTrainHistoryBinding
 import java.io.File
 import java.text.SimpleDateFormat
@@ -99,16 +102,14 @@ class TrainHistoryActivity : AppCompatActivity() {
 
                 // Find action icon and label inside the first line of the file
                 fileLines.firstOrNull()?.let { line ->
-                    val parts = line.split(",")
-                    val action = parts.getOrNull(1) ?: "standing"
-                    // Get action enum instance
-                    Action.entries.find { it.value == action }?.let { actionEnum ->
-                        sessionActionIcon.setImageResource(actionEnum.icon)
-                        sessionActionLabel.text = itemView.context.getString(actionEnum.stringname)
-                    }
+                    val csvLine = CSVLine.fromCSVString(line)
 
-                    val user = parts.getOrNull(3) ?: "Unknown"
-                    sessionUserTextView.text = user
+                    // Action icon and label
+                    sessionActionIcon.setImageResource(csvLine.action.drawableResource)
+                    sessionActionLabel.text = itemView.context.getString(csvLine.action.stringResource)
+
+                    // User name
+                    sessionUserTextView.text = csvLine.sessionUserName
                 }
 
                 // Count samples in file
@@ -128,7 +129,9 @@ class TrainHistoryActivity : AppCompatActivity() {
 
     // Session management
     private fun showFileOptionsDialog(context: Context, file: File, onDelete: () -> Unit) {
-        val options = arrayOf(getString(R.string.train_history_session_dialog_action_open), getString(R.string.train_history_session_dialog_action_share), getString(R.string.train_history_session_dialog_action_delete))
+        val options = arrayOf(getString(R.string.train_history_session_dialog_action_open), getString(
+            R.string.train_history_session_dialog_action_share
+        ), getString(R.string.train_history_session_dialog_action_delete))
 
         MaterialAlertDialogBuilder(context)
             .setTitle(context.getString(R.string.train_history_session_dialog_title, file.name))

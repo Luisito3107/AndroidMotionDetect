@@ -1,4 +1,4 @@
-package com.luislezama.motiondetect
+package com.luislezama.motiondetect.ui
 
 import android.content.Context
 import android.os.Bundle
@@ -15,15 +15,15 @@ import androidx.lifecycle.lifecycleScope
 import com.luislezama.motiondetect.deviceconnection.WearConnectionViewModel
 import com.google.android.gms.wearable.Node
 import com.google.android.material.snackbar.Snackbar
+import com.luislezama.motiondetect.R
 import com.luislezama.motiondetect.deviceconnection.ConnectionManager
+import com.luislezama.motiondetect.deviceconnection.PseudoNode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class SettingsFragment : Fragment() {
-    private val wearConnectionViewModel: WearConnectionViewModel by activityViewModels()
-
     // UI elements
     private lateinit var root: View
     private lateinit var settingsLoader: View
@@ -32,9 +32,7 @@ class SettingsFragment : Fragment() {
     private lateinit var wearDeviceClearSelectionBtn: Button
     private lateinit var wearDeviceTestConnectionBtn: Button
 
-
-    private lateinit var connectionManager: ConnectionManager
-    private lateinit var wearableNodes: List<Node>
+    private lateinit var wearableNodes: List<PseudoNode>
     private lateinit var wearableSelectAdapter: WearableSelectAdapter
 
 
@@ -44,7 +42,6 @@ class SettingsFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val settingsLayout = inflater.inflate(R.layout.fragment_settings, container, false)
-        connectionManager = wearConnectionViewModel.connectionManager
 
         // Initialize UI elements
         initializeUI(settingsLayout)
@@ -70,7 +67,7 @@ class SettingsFragment : Fragment() {
 
         // Set click listener for the clear selection button
         wearDeviceClearSelectionBtn.setOnClickListener {
-            connectionManager.saveSelectedWearDevice(nodeId = "-1", nodeName = "")
+            ConnectionManager.clearSelectedWearDevice()
             wearDeviceSelect.setText("")
             wearDeviceTestConnectionBtn.isEnabled = false
             Snackbar.make(root, R.string.settings_weardevice_select_cleared, Snackbar.LENGTH_SHORT).show()
@@ -82,7 +79,7 @@ class SettingsFragment : Fragment() {
             wearDeviceTestConnectionBtn.isEnabled = false
             wearDeviceClearSelectionBtn.isEnabled = false
 
-            val timeout = connectionManager.testingTimeout
+            val timeout = ConnectionManager.TESTING_TIMEOUT
             wearDeviceTestConnectionBtn.text = getString(R.string.settings_weardevice_select_test_inprogress, timeout)
 
             viewLifecycleOwner.lifecycleScope.launch {
@@ -93,7 +90,7 @@ class SettingsFragment : Fragment() {
                     }
                 }
 
-                val responseTime = connectionManager.testConnection(layout.context)
+                val responseTime = ConnectionManager.testConnection()
 
                 countdownJob.cancel()
 
@@ -121,17 +118,14 @@ class SettingsFragment : Fragment() {
 
         // Load connected devices and fill the wearable selector in a separate coroutine
         viewLifecycleOwner.lifecycleScope.launch {
-            wearableNodes = connectionManager.getConnectedDevices()
-            val selectedNodeId = connectionManager.getSelectedNode()
+            wearableNodes = ConnectionManager.getAllConnectedNodes()
+            val selectedNode = ConnectionManager.getSelectedNode()
 
             withContext(Dispatchers.Main) { // Run in the main thread
                 // Set the current selection in the wearable selector
-                if (selectedNodeId != null) {
-                    val selectedNode = wearableNodes.find { it.id == selectedNodeId }
-                    if (selectedNode != null) {
-                        wearDeviceSelect.setText(selectedNode.displayName)
-                        wearDeviceTestConnectionBtn.isEnabled = true
-                    }
+                if (selectedNode != null) {
+                    wearDeviceSelect.setText(selectedNode.displayName)
+                    wearDeviceTestConnectionBtn.isEnabled = true
                 }
 
                 // Fill the wearable selector with the connected devices
@@ -140,12 +134,11 @@ class SettingsFragment : Fragment() {
 
                 // Set the listener for the wearable selector
                 wearDeviceSelect.setOnItemClickListener { parent, view, position, id ->
-                    val selectedNode = wearableNodes[position]
-                    val selectedId = selectedNode.id
+                    val newSelectedNode = wearableNodes[position]
 
-                    wearDeviceSelect.setText(selectedNode.displayName) // Update the selected text
+                    wearDeviceSelect.setText(newSelectedNode.displayName) // Update the selected text
 
-                    connectionManager.saveSelectedWearDevice(nodeId = selectedId, nodeName = selectedNode.displayName) // Save the selection
+                    ConnectionManager.saveSelectedWearDevice(newSelectedNode) // Save the selection
                     Snackbar.make(root, R.string.settings_weardevice_select_saved, Snackbar.LENGTH_SHORT).show() // Show a toast
 
                     wearDeviceTestConnectionBtn.isEnabled = true
@@ -158,7 +151,7 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    class WearableSelectAdapter(context: Context, resource: Int, objects: List<Node>) : ArrayAdapter<Node>(context, resource, objects) {
+    class WearableSelectAdapter(context: Context, resource: Int, objects: List<PseudoNode>) : ArrayAdapter<PseudoNode>(context, resource, objects) {
         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
             return createViewFromResource(position, convertView, parent)
         }

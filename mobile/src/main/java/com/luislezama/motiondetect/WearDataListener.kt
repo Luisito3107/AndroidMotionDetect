@@ -8,7 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class WearDataListener(
+/*class WearDataListener(
     private val context: Context,
     private val connectionManager: ConnectionManager
 ) : MessageClient.OnMessageReceivedListener {
@@ -78,3 +78,4 @@ class WearDataListener(
         }
     }
 }
+*/

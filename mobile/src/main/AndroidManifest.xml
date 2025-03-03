@@ -34,12 +34,12 @@
         </activity>
 
         <service
-            android:name=".TrainingService"
+            android:name=".data.TrainForegroundService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 
         <activity
-            android:name=".TrainHistoryActivity"
+            android:name=".ui.TrainHistoryActivity"
             android:exported="false"
             android:enableOnBackInvokedCallback="true"
             android:label="@string/title_activity_train_history"
