@@ -16,7 +16,6 @@ class TrainViewModel : ViewModel() {
     val delayedStart = MutableLiveData<Int>(5)
 
 
-
-    // Train session status
+    // Train service status for UI, will be updated by the intents sent by TrainForegroundService
     val serviceStatus: MutableLiveData<TrainForegroundService.ServiceStatus> = MutableLiveData(null)
 }

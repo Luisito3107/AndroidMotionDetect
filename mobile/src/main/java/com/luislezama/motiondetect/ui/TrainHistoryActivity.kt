@@ -21,11 +21,21 @@ import com.google.android.material.snackbar.Snackbar
 import com.luislezama.motiondetect.R
 import com.luislezama.motiondetect.data.Action
 import com.luislezama.motiondetect.data.CSVLine
+import com.luislezama.motiondetect.data.TrainForegroundService
 import com.luislezama.motiondetect.databinding.ActivityTrainHistoryBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class TrainHistoryActivity : AppCompatActivity() {
 
@@ -48,7 +58,8 @@ class TrainHistoryActivity : AppCompatActivity() {
         val recyclerView = findViewById<RecyclerView>(R.id.train_history_recycler_view)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        fileList = filesDir.listFiles { file -> file.extension == "csv" }?.toMutableList() ?: mutableListOf()
+        val subfolder = File(filesDir, TrainForegroundService.SESSIONS_STORED_IN_SUBFOLDER)
+        val fileList = subfolder.listFiles { file -> file.extension == "csv" }?.toMutableList() ?: mutableListOf()
         adapter = CsvFileAdapter(fileList) { file, position ->
             showFileOptionsDialog(this, file) {
                 fileList.removeAt(position)
@@ -91,7 +102,7 @@ class TrainHistoryActivity : AppCompatActivity() {
                 val fileName = file.nameWithoutExtension
                 val parts = fileName.split("_")
                 val timestamp = (parts.getOrNull(0)?.toLongOrNull() ?: 0L)*1000
-                val sessionName = parts.getOrNull(1) ?: "???"
+                val sessionName = parts.drop(1).joinToString("_")
 
                 // Timestamp to readable date
                 val formattedDate = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(
@@ -205,6 +216,75 @@ class TrainHistoryActivity : AppCompatActivity() {
             .show()
     }
 
+    fun shareAllSessionFiles(context: Context) {
+        val subfolder = File(context.filesDir, TrainForegroundService.SESSIONS_STORED_IN_SUBFOLDER)
+        val fileList = subfolder.listFiles { file -> file.extension == "csv" }?.toList() ?: emptyList()
+
+        if (fileList.isEmpty()) {
+            Snackbar.make(binding.root, getString(R.string.train_history_share_all_as_zip_error_no_sessions), Snackbar.LENGTH_SHORT).show()
+            return
+        }
+
+        // Create ZIP file in the app data
+        val zipFile = File(context.filesDir, "sessions_backup.zip")
+
+
+        // Show a loading dialog before starting the copy
+        val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_loading, null)
+        val loadingTextView = dialogView.findViewById<TextView>(R.id.dialog_loading_text)
+        loadingTextView.text = getString(R.string.train_history_share_all_as_zip_message)
+        val progressDialog = MaterialAlertDialogBuilder(context)
+            .setView(dialogView)
+            .setCancelable(false)
+            .setNegativeButton(getString(R.string.train_history_share_all_as_zip_cancel)) { dialog, _ ->
+                zipFile.delete() // Delete zip file if cancelled
+                dialog.dismiss()
+            }
+            .create()
+        progressDialog.show()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                ZipOutputStream(FileOutputStream(zipFile)).use { zipOut ->
+                    fileList.forEach { file ->
+                        FileInputStream(file).use { fis ->
+                            val entry = ZipEntry(file.name)
+                            zipOut.putNextEntry(entry)
+                            fis.copyTo(zipOut)
+                            zipOut.closeEntry()
+                        }
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    progressDialog.dismiss()
+                    shareZipFile(context, zipFile)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    progressDialog.dismiss()
+                    Snackbar.make(binding.root, getString(R.string.train_history_share_all_as_zip_error), Snackbar.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun shareZipFile(context: Context, zipFile: File) {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", zipFile)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/zip"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, getString(R.string.train_history_share_all_as_zip)))
+
+        // Delete ZIP file after sharing
+        CoroutineScope(Dispatchers.IO).launch {
+            delay(5000) // Wait 5 seconds before deleting the file
+            zipFile.delete()
+        }
+    }
+
 
     // Train history button only visible in the train fragment
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -213,6 +293,10 @@ class TrainHistoryActivity : AppCompatActivity() {
     }
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.train_history_share_all_btn -> {
+                shareAllSessionFiles(this)
+                true
+            }
             R.id.train_history_delete_all_btn -> {
                 confirmDeleteAllFiles(this) {
                     fileList.clear()

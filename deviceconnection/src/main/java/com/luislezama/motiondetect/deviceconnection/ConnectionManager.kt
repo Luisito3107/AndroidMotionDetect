@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.util.Log
+import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.NodeClient
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.CompletableDeferred
@@ -13,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.CancellationException
 import kotlin.system.measureTimeMillis
 
 
@@ -44,18 +46,29 @@ object ConnectionManager {
 
 
     // Test connection
-    private var connectionResponse = CompletableDeferred<Boolean>()
+    private var connectionResponse: CompletableDeferred<Boolean>? = null
+
+    private val listener = MessageClient.OnMessageReceivedListener { messageEvent ->
+        if (messageEvent.path == "/test_connection_response") {
+            connectionResponse?.complete(true)
+        }
+    }
 
     suspend fun testConnection(): Long {
-        if (!isWearOS && messageQueue != null) {
+        if (!isWearOS && connectedNode != null && !isTestingConnection()) {
             connectionResponse = CompletableDeferred()
 
+            Wearable.getMessageClient(applicationContext).addListener(listener)
+
             val timeTaken = measureTimeMillis {
-                messageQueue!!.sendMessage("/test_connection") // Send message to wear device
+                messageQueue.sendMessage("/test_connection") // Send message to wear device
 
                 val success = withTimeoutOrNull((TESTING_TIMEOUT * 1000).toLong()) {
-                    connectionResponse.await() // Wait for response in "/test_connection_response"
+                    connectionResponse!!.await() // Wait for response in "/test_connection_response"
                 } ?: false // If timeout, consider it a failure
+
+                Wearable.getMessageClient(applicationContext).removeListener(listener)
+                connectionResponse = null // Reset the deferred
 
                 if (!success) return -1 // In case of failure, return -1
             }
@@ -67,20 +80,24 @@ object ConnectionManager {
     }
 
     fun testConnectionResponse() {
-        if (isWearOS && messageQueue != null) {
+        if (isWearOS && connectedNode != null) {
             val coords: DoubleArray = doubleArrayOf(2.3467607,4.299603,2.5082762,1.4981171,0.28894445,-0.7122414)
             var coordsString = coords.joinToString(",")
             val repeatedString = coordsString.repeat(200)
-            messageQueue!!.sendMessage("/test_connection_response", repeatedString.toByteArray())
+            messageQueue.sendMessage("/test_connection_response", repeatedString.toByteArray())
         }
     }
 
-    fun onConnectionResponseReceived() {
-        if (!isWearOS) {
-            if (!connectionResponse.isCompleted) {
-                connectionResponse.complete(true) // Resolve the deferred with true
-            }
+    fun isTestingConnection(): Boolean {
+        return connectionResponse != null
+    }
+
+    fun cancelTestConnection() {
+        if (connectionResponse != null && connectionResponse?.isCompleted != true) {
+            connectionResponse!!.completeExceptionally(CancellationException("Connection test cancelled"))
+            connectionResponse = null
         }
+        Wearable.getMessageClient(applicationContext).removeListener(listener)
     }
 
 

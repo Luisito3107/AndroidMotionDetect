@@ -38,6 +38,11 @@
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 
+        <service
+            android:name=".data.RecognitionForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
         <activity
             android:name=".ui.TrainHistoryActivity"
             android:exported="false"

@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
@@ -17,9 +16,11 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.NavigationUI
 import androidx.navigation.ui.NavigationUI.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
+import com.luislezama.motiondetect.data.RecognitionForegroundServiceHolder
 import com.luislezama.motiondetect.data.TrainForegroundServiceHolder
 import com.luislezama.motiondetect.databinding.ActivityMainBinding
 import com.luislezama.motiondetect.deviceconnection.ConnectionManager
+import com.luislezama.motiondetect.ui.RecognitionFragment
 import com.luislezama.motiondetect.ui.TrainFragment
 import com.luislezama.motiondetect.ui.TrainHistoryActivity
 
@@ -39,7 +40,7 @@ class MainActivity : AppCompatActivity() {
         val navController = findNavController(R.id.nav_host_fragment_activity_main)
         val appBarConfiguration = AppBarConfiguration(
             setOf(
-                R.id.navigation_predict, R.id.navigation_train, R.id.navigation_settings
+                R.id.navigation_recognition, R.id.navigation_train, R.id.navigation_settings
             )
         )
 
@@ -54,14 +55,19 @@ class MainActivity : AppCompatActivity() {
 
         val fragmentToOpen = intent.getStringExtra("FRAGMENT_TO_OPEN")
         when {
-            fragmentToOpen == "predict" -> {
-                navView.selectedItemId = R.id.navigation_predict
+            fragmentToOpen == "recognition" || RecognitionForegroundServiceHolder.service != null -> {
+                navView.selectedItemId = R.id.navigation_recognition
+                supportFragmentManager.beginTransaction().let {
+                    it.replace(R.id.nav_host_fragment_activity_main, RecognitionFragment())
+                    it.commit()
+                }
             }
             fragmentToOpen == "train" || TrainForegroundServiceHolder.service != null -> {
                 navView.selectedItemId = R.id.navigation_train
-                supportFragmentManager.beginTransaction()
-                    .replace(R.id.nav_host_fragment_activity_main, TrainFragment())
-                    .commit()
+                supportFragmentManager.beginTransaction().let {
+                    it.replace(R.id.nav_host_fragment_activity_main, TrainFragment())
+                    it.commit()
+                }
             }
         }
 
@@ -71,7 +77,10 @@ class MainActivity : AppCompatActivity() {
             var continueNavigation = true
 
             when (item.itemId) {
-                R.id.navigation_predict -> {
+                R.id.navigation_recognition -> {
+                    continueNavigation =
+                        (RecognitionForegroundServiceHolder.service != null && currentDestinationId != R.id.navigation_recognition) || (RecognitionForegroundServiceHolder.service == null)
+
                     if (TrainForegroundServiceHolder.service != null) {
                         continueNavigation = false
                         Toast.makeText(this, "Train service is running", Toast.LENGTH_SHORT).show()
@@ -80,11 +89,21 @@ class MainActivity : AppCompatActivity() {
                 R.id.navigation_train -> {
                     continueNavigation =
                         (TrainForegroundServiceHolder.service != null && currentDestinationId != R.id.navigation_train) || (TrainForegroundServiceHolder.service == null)
+
+                    if (RecognitionForegroundServiceHolder.service != null) {
+                        continueNavigation = false
+                        Toast.makeText(this, "Recognition service is running", Toast.LENGTH_SHORT).show()
+                    }
                 }
                 R.id.navigation_settings -> {
                     if (TrainForegroundServiceHolder.service != null) {
                         continueNavigation = false
                         Toast.makeText(this, "Train service is running", Toast.LENGTH_SHORT).show()
+                    }
+
+                    if (RecognitionForegroundServiceHolder.service != null) {
+                        continueNavigation = false
+                        Toast.makeText(this, "Recognition service is running", Toast.LENGTH_SHORT).show()
                     }
                 }
             }

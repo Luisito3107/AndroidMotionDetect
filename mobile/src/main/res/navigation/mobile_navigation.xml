@@ -3,13 +3,13 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mobile_navigation"
-    app:startDestination="@+id/navigation_predict">
+    app:startDestination="@+id/navigation_recognition">
 
     <fragment
-        android:id="@+id/navigation_predict"
-        android:name="com.luislezama.motiondetect.ui.PredictFragment"
-        android:label="@string/predict_title"
-        tools:layout="@layout/fragment_predict" />
+        android:id="@+id/navigation_recognition"
+        android:name="com.luislezama.motiondetect.ui.RecognitionFragment"
+        android:label="@string/recognition_title"
+        tools:layout="@layout/fragment_recognition" />
 
     <fragment
         android:id="@+id/navigation_train"

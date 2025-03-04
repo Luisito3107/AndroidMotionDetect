@@ -2,9 +2,9 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
-        android:id="@+id/navigation_predict"
+        android:id="@+id/navigation_recognition"
         android:icon="@drawable/selector_predict"
-        android:title="@string/predict_title" />
+        android:title="@string/recognition_title" />
 
     <item
         android:id="@+id/navigation_train"

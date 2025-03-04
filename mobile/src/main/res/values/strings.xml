@@ -1,8 +1,39 @@
 <resources>
     <string name="app_name">MotionDetect</string>
 
-    <string name="predict_title">Predict</string>
-
+    <string name="recognition_title">Recognition</string>
+    <string name="recognition_status_title">Status</string>
+    <string name="recognition_status_delayedstart">Starting capture session in</string>
+    <string name="recognition_status_waiting">Waiting for Wear OS device to respond</string>
+    <string name="recognition_status_receiving_waiting">Waiting for the first action recognition result</string>
+    <string name="recognition_status_receiving_recognizing">You are %s</string>
+    <string name="recognition_status_disabled">Recognition client not running</string>
+    <string name="recognition_status_hint">Recognition status</string>
+    <string name="recognition_details_title">Session parameters</string>
+    <string name="recognition_details_user_hand">Watch in hand</string>
+    <string name="recognition_details_user_hand_left">Left hand</string>
+    <string name="recognition_details_user_hand_right">Right hand</string>
+    <string name="recognition_details_samplesperpacket">Samples per packet</string>
+    <string name="recognition_details_samplesperpacket_hint">%d samples</string>
+    <string name="recognition_details_delayedstart">Delayed start in seconds</string>
+    <string name="recognition_details_delayedstart_hint">%d seconds</string>
+    <string name="recognition_toast_start">Recognition started</string>
+    <string name="recognition_toast_stop">Recognition stopped</string>
+    <string name="recognition_toast_stop_wearos_no_response">Recognition stopped, no response from Wear OS device in %d seconds</string>
+    <string name="recognition_toast_stop_recognition_error">Recognition stopped as an error occoured during recognition. See logcat for details.</string>
+    <string name="recognition_toast_error_no_wearos">Please select a Wear OS device in Settings</string>
+    <string name="recognition_toast_error_no_model">Please select a recognition model in Settings</string>
+    <string name="recognition_toast_error_model_not_compatible">Selected model doesn\'t meet the required characteristics</string>
+    <string name="recognition_service_notification_channel_name">Recognition service</string>
+    <string name="recognition_service_notification_title">Recognition session running</string>
+    <string name="recognition_service_notification_content_delayedstart">Starting capture session in %d seconds</string>
+    <string name="recognition_service_notification_content_waiting">Waiting for Wear OS device to respond</string>
+    <string name="recognition_service_notification_content_receiving_waiting">Waiting for the first action recognition result.</string>
+    <string name="recognition_service_notification_content_receiving_recognizing">You are %s.</string>
+    <string name="recognition_service_notification_button_stop">Stop</string>
+    <string name="recognition_service_notification_button_open_app">Open app</string>
+    <string name="recognition_service_notification_timeout_title">Recognition session stopped</string>
+    <string name="recognition_service_notification_timeout_content">Recognition stopped after %d samples, no response from Wear OS device in %d seconds.</string>
 
     <string name="train_title">Train</string>
     <string name="train_status_title">Status</string>
@@ -65,6 +96,12 @@
     <string name="train_history_delete_all_cancel">Cancel</string>
     <string name="train_history_delete_all_success">All sessions deleted</string>
     <string name="train_history_delete_all_error">Error deleting all sessions</string>
+    <string name="train_history_share_all_as_zip">Share all sessions as ZIP file</string>
+    <string name="train_history_share_all_as_zip_message">Preparing ZIP file, please wait…</string>
+    <string name="train_history_share_all_as_zip_cancel">Cancel</string>
+    <string name="train_history_share_all_as_zip_error">Error creating ZIP file</string>
+    <string name="train_history_share_all_as_zip_error_no_sessions">No sessions to share</string>
+
 
 
 
@@ -81,6 +118,23 @@
     <string name="settings_weardevice_select_test_inprogress">Testing… (%d s)</string>
     <string name="settings_weardevice_select_test_success">Wear OS device replied in %d ms</string>
     <string name="settings_weardevice_select_test_failure">No response from Wear OS device after %d seconds</string>
+
+    <string name="settings_recognitionmodel_title">Recognition model</string>
+    <string name="settings_recognitionmodel_hint">In order to start a Recognition session, you need to select a .tflite model first. The model file you select will be copied into app internal storage. If you select a new model, the old one will be deleted.</string>
+    <string name="settings_recognitionmodel_hint_2">Model must have and input shape of (100,6) and output shape of (None,5). This means the model must receive 100 groups of 6 coordinates (accelerometer and gyroscope X, Y and Z), and must output one of the 5 possible actions (0..4) as an integer.</string>
+    <string name="settings_recognitionmodel_hint_3">Recognition service will not start until you select a model that meets the required characteristics.</string>
+    <string name="settings_recognitionmodel_selected">Selected model</string>
+    <string name="settings_recognitionmodel_selected_none">No model selected</string>
+    <string name="settings_recognitionmodel_select_clear">Clear selection</string>
+    <string name="settings_recognitionmodel_select_new">Select new model</string>
+    <string name="settings_recognitionmodel_select_copying">Copying model to app storage, please wait…</string>
+    <string name="settings_recognitionmodel_select_saved">Recognition model stored in app storage.</string>
+    <string name="settings_recognitionmodel_select_cleared">Recognition model deleted from app storage.</string>
+    <string name="settings_recognitionmodel_select_error_invalid_file">Invalid file. Please select a valid .tflite model file.</string>
+    <string name="settings_recognitionmodel_select_error_copy_failed">Error copying model to app storage. Please try again.</string>
+
+
+
 
 
     <string name="base_action_standing">Standing</string>

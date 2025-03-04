@@ -53,6 +53,10 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.google.flexbox)
     implementation(libs.kotlin.reflect)
+    implementation(libs.tensorflow.lite)
+    implementation(libs.litert.support.api)
+    implementation(libs.tensorflow.lite.select.tf.ops)
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

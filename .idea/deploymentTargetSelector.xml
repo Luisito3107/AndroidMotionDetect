@@ -4,7 +4,7 @@
     <selectionStates>
       <SelectionState runConfigName="mobile">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-02-22T10:18:08.358562100Z">
+        <DropdownSelection timestamp="2025-03-04T05:15:40.000518800Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="PhysicalDevice" identifier="serial=2A241FDH30015Z" />
@@ -15,7 +15,7 @@
       </SelectionState>
       <SelectionState runConfigName="wear">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-02-26T06:27:40.274723400Z">
+        <DropdownSelection timestamp="2025-03-04T03:15:05.874263400Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\pudi3\.android\avd\Wear_OS_5_Small_Round_API_34.avd" />

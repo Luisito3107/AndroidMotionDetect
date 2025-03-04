@@ -8,10 +8,14 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.os.CountDownTimer
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.android.gms.wearable.Wearable
 import com.luislezama.motiondetect.R
@@ -23,16 +27,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import org.tensorflow.lite.DataType
+import org.tensorflow.lite.Interpreter
+import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
+import org.tensorflow.lite.support.tensorbuffer.TensorBufferFloat
 import java.io.File
-import java.io.FileWriter
-import java.io.IOException
+import java.io.FileInputStream
+import java.nio.MappedByteBuffer
+import java.nio.channels.FileChannel
 
 
-object TrainForegroundServiceHolder {
-    var service: TrainForegroundService? = null
+object RecognitionForegroundServiceHolder {
+    var service: RecognitionForegroundService? = null
 }
 
-class TrainForegroundService : Service() {
+class RecognitionForegroundService : Service() {
     enum class ServiceStatus {
         STOPPED,
         DELAYED_START,
@@ -41,29 +50,28 @@ class TrainForegroundService : Service() {
     }
 
     enum class ServiceStopReason {
-        //SERVICE_WAS_NOT_EVEN_RUNNING_LOL,
         MANUAL_STOP,
-        STOP_AFTER_SAMPLE_COUNT,
         NO_RESPONSE_FROM_WEAROS,
-        WEAR_DEVICE_DISCONNECTED,
-        CSV_FILE_NOT_CREATED,
-        CSV_FILE_ALREADY_EXISTS
+        MODEL_NOT_FOUND,
+        MODEL_NOT_COMPATIBLE,
+        RECOGNITION_ERROR,
+        WEAR_DEVICE_DISCONNECTED
     }
 
     companion object {
         fun getServiceStatus(context: Context = ConnectionManager.applicationContext): ServiceStatus {
             val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             val isRunning = activityManager.getRunningServices(Integer.MAX_VALUE)
-                .any { it.service.className == TrainForegroundService::class.java.name }
+                .any { it.service.className == RecognitionForegroundService::class.java.name }
 
             return if (!isRunning) ServiceStatus.STOPPED // Service is not running
-            else TrainForegroundServiceHolder.service?.getServiceStatus() ?: ServiceStatus.STOPPED // Get the current service status (if any)
+            else RecognitionForegroundServiceHolder.service?.getServiceStatus() ?: ServiceStatus.STOPPED // Get the current service status (if any)
         }
 
         fun start(context: Context = ConnectionManager.applicationContext) {
             if (getServiceStatus() != ServiceStatus.STOPPED) return
 
-            val serviceIntent = Intent(context, TrainForegroundService::class.java)
+            val serviceIntent = Intent(context, RecognitionForegroundService::class.java)
             context.startService(serviceIntent)
         }
 
@@ -71,19 +79,37 @@ class TrainForegroundService : Service() {
             if (getServiceStatus() == ServiceStatus.STOPPED) return
 
             if (stopReason != null) {
-                TrainForegroundServiceHolder.service?.stopReason = stopReason
+                RecognitionForegroundServiceHolder.service?.stopReason = stopReason
             }
-            val serviceIntent = Intent(context, TrainForegroundService::class.java)
+            val serviceIntent = Intent(context, RecognitionForegroundService::class.java)
             context.stopService(serviceIntent)
         }
 
         const val WEAR_MESSAGE_TIMEOUT_IN_MS = 15000L // Service will stop after 15 seconds of no message from Wear OS
         private const val CONFIRMATION_TIME_INTERVAL = 10000L // Service will send a confirmation message to the Wear OS device every 10 seconds. This can't be lower than WearForegroundService timeout (wear module).
-        private const val SERVICE_NOTIFICATION_CHANNEL_ID = "TrainingServiceChannel"
+        private const val SERVICE_NOTIFICATION_CHANNEL_ID = "RecognitionServiceChannel"
         private const val SERVICE_NOTIFICATION_RUNNING_ID = 1
         private const val SERVICE_NOTIFICATION_TIMEOUT_ID = 2
-        const val SESSIONS_STORED_IN_SUBFOLDER = "trainsessions"
-        const val ACTION_SERVICE_STATUS_CHANGED = "TRAIN_SERVICE_STATUS_CHANGED"
+        const val MODELS_STORED_IN_SUBFOLDER = "models"
+        const val ACTION_SERVICE_STATUS_CHANGED = "RECOGNITION_SERVICE_STATUS_CHANGED"
+
+        fun getSelectedModelFile(context: Context = ConnectionManager.applicationContext): File? {
+            val sharedPreferences = context.getSharedPreferences("motiondetect_prefs", Context.MODE_PRIVATE)
+            val selectedModelPath = sharedPreferences.getString("selected_model_path", null)
+            selectedModelPath?.let {
+                val modelFile = File(it)
+                if (modelFile.exists()) return modelFile
+                else return null
+            }
+            return null
+        }
+
+        fun selectedModelFileExists(context: Context = ConnectionManager.applicationContext): Boolean {
+            getSelectedModelFile(context)?.let {
+                return it.exists()
+            }
+            return false
+        }
     }
 
 
@@ -99,14 +125,19 @@ class TrainForegroundService : Service() {
     private var lastNotificationUpdateTime: Long = 0
 
 
-    // Train session parameters
-    private var action: Action = Action.STANDING
-    private var alias: String = ""
-    private var user: String = ""
+    // Recognition session parameters
     private var userHand: HandOption = HandOption.LEFT
-    private var stopAfter: Int? = null
     private var delayedStartInSeconds: Int = 10
-    private var samplesPerPacket: Int = 10
+    private var samplesPerPacket: Int = 100
+
+
+    // Recognition model
+    @Volatile
+    private var recognitionInProcess = false
+    private lateinit var tfliteInterpreter: Interpreter
+    private val modelInputShape: IntArray = intArrayOf(1, 100, 6) // 100 groups of 6 coords
+    private val modelInputDataType: DataType = DataType.FLOAT32
+
 
     private var receivedSensorDataPacketsCount: Int = 0
     fun getReceivedSensorDataPacketsCount(): Int {
@@ -115,6 +146,9 @@ class TrainForegroundService : Service() {
 
     private val _totalSensorSamplesCaptured: MutableStateFlow<Int> = MutableStateFlow(0)
     val totalSensorSamplesCaptured: StateFlow<Int> = _totalSensorSamplesCaptured
+
+    private val _currentRecognizedAction: MutableStateFlow<Action?> = MutableStateFlow(null)
+    val currentRecognizedAction: StateFlow<Action?> = _currentRecognizedAction
 
 
 
@@ -163,7 +197,7 @@ class TrainForegroundService : Service() {
             }
 
             ServiceStatus.STOPPED -> {
-                intent.putExtra("TOTAL_SENSOR_SAMPLES_CAPTURED", _totalSensorSamplesCaptured.value)
+                //intent.putExtra("TOTAL_SENSOR_SAMPLES_CAPTURED", _totalSensorSamplesCaptured.value)
                 intent.putExtra("SERVICE_STOP_REASON", stopReason)
             }
         }
@@ -180,31 +214,49 @@ class TrainForegroundService : Service() {
     // Notification management
     private fun createNotification(status: ServiceStatus = getServiceStatus()): Notification {
         val notificationText = when (status) {
-            ServiceStatus.DELAYED_START -> getString(R.string.train_service_notification_content_delayedstart, _delayedStartRemainingTime.value)
-            ServiceStatus.WAITING -> getString(R.string.train_service_notification_content_waiting)
-            ServiceStatus.RECEIVING -> getString(R.string.train_service_notification_content_receiving, _totalSensorSamplesCaptured.value, getReceivedSensorDataPacketsCount())
+            ServiceStatus.DELAYED_START -> getString(R.string.recognition_service_notification_content_delayedstart, _delayedStartRemainingTime.value)
+            ServiceStatus.WAITING -> getString(R.string.recognition_service_notification_content_waiting)
+            ServiceStatus.RECEIVING -> {
+                if (_currentRecognizedAction.value == null) getString(R.string.recognition_service_notification_content_receiving_waiting)
+                else getString(R.string.recognition_service_notification_content_receiving_recognizing, getString(_currentRecognizedAction.value!!.stringResource))
+            }
             else -> ""
         }
 
         val notificationChannel = NotificationChannel(
             SERVICE_NOTIFICATION_CHANNEL_ID,
-            getString(R.string.train_service_notification_channel_name),
+            getString(R.string.recognition_service_notification_channel_name),
             NotificationManager.IMPORTANCE_LOW
         )
 
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(notificationChannel)
 
-        return NotificationCompat.Builder(this, SERVICE_NOTIFICATION_CHANNEL_ID)
-            .setContentTitle(getString(R.string.train_service_notification_title))
-            .setStyle(NotificationCompat.BigTextStyle()
+        fun getBitmapFromVectorDrawable(context: Context?, drawableId: Int): Bitmap {
+            val drawable = ContextCompat.getDrawable(context!!, drawableId)
+            val bitmap = Bitmap.createBitmap(
+                drawable!!.intrinsicWidth,
+                drawable.intrinsicHeight, Bitmap.Config.ARGB_8888
+            )
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            return bitmap
+        }
+
+        return NotificationCompat.Builder(this, SERVICE_NOTIFICATION_CHANNEL_ID).run {
+            setContentTitle(getString(R.string.recognition_service_notification_title))
+            setStyle(NotificationCompat.BigTextStyle()
                 .bigText(notificationText))
-            .setSmallIcon(R.drawable.ic_train)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setOngoing(true) // Notification cannot be dismissed by the user
-            .addAction(R.drawable.ic_stop, getString(R.string.train_service_notification_button_stop), getStopServiceIntent()) // Stop service button
-            .addAction(R.drawable.ic_open_app, getString(R.string.train_service_notification_button_open_app), getOpenAppIntent()) // Open app button
-            .build()
+            setSmallIcon(R.drawable.ic_predict)
+            if (_currentRecognizedAction.value != null) setLargeIcon(getBitmapFromVectorDrawable(this@RecognitionForegroundService, _currentRecognizedAction.value!!.drawableResource))
+            setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            setOngoing(true) // Notification cannot be dismissed by the user
+            addAction(R.drawable.ic_stop, getString(R.string.recognition_service_notification_button_stop), getStopServiceIntent()) // Stop service button
+            addAction(R.drawable.ic_open_app, getString(R.string.recognition_service_notification_button_open_app), getOpenAppIntent()) // Open app button
+            build()
+        }
+
     }
 
     private fun updateNotification(status: ServiceStatus = getServiceStatus()) {
@@ -231,7 +283,7 @@ class TrainForegroundService : Service() {
     }
 
     private fun getStopServiceIntent(): PendingIntent { // This intent will stop the service
-        val stopIntent = Intent(this, TrainForegroundService::class.java).apply {
+        val stopIntent = Intent(this, RecognitionForegroundService::class.java).apply {
             action = "STOP_SERVICE"
         }
         return PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE)
@@ -239,14 +291,14 @@ class TrainForegroundService : Service() {
 
     private fun getOpenAppIntent(): PendingIntent { // This intent will only open the app
         val openIntent = packageManager.getLaunchIntentForPackage(packageName)
-        openIntent?.putExtra("FRAGMENT_TO_OPEN", "train")
+        openIntent?.putExtra("FRAGMENT_TO_OPEN", "recognition")
         return PendingIntent.getActivity(this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE)
     }
 
     private fun sendTimeoutNotification(context: Context) {
         val notificationChannel = NotificationChannel(
             SERVICE_NOTIFICATION_CHANNEL_ID,
-            getString(R.string.train_service_notification_channel_name),
+            getString(R.string.recognition_service_notification_channel_name),
             NotificationManager.IMPORTANCE_LOW
         )
 
@@ -254,9 +306,9 @@ class TrainForegroundService : Service() {
         notificationManager.createNotificationChannel(notificationChannel)
 
         val notification = NotificationCompat.Builder(context, SERVICE_NOTIFICATION_CHANNEL_ID)
-            .setContentTitle(getString(R.string.train_service_notification_timeout_title))
-            .setContentText(getString(R.string.train_service_notification_timeout_content, _totalSensorSamplesCaptured.value, _delayedStartRemainingTime.value))
-            .setSmallIcon(R.drawable.ic_train)
+            .setContentTitle(getString(R.string.recognition_service_notification_timeout_title))
+            .setContentText(getString(R.string.recognition_service_notification_timeout_content, _totalSensorSamplesCaptured.value, _delayedStartRemainingTime.value))
+            .setSmallIcon(R.drawable.ic_predict)
             .setAutoCancel(true)
             .build()
 
@@ -278,30 +330,10 @@ class TrainForegroundService : Service() {
         super.onCreate()
 
         // Get settings from shared preferences
-        val sharedPreferences = this.getSharedPreferences("TrainSettings", Context.MODE_PRIVATE)
-        action = Action.entries.find { it.value == sharedPreferences.getString("action", "standing") } ?: Action.STANDING
-        alias = sharedPreferences.getString("alias", "no_alias") ?: "no_alias"
-        user = sharedPreferences.getString("user", "no_user") ?: "no_user"
+        val sharedPreferences = this.getSharedPreferences("RecognitionSettings", Context.MODE_PRIVATE)
         userHand = HandOption.entries.find { it.value == sharedPreferences.getString("userHand", "left") } ?: HandOption.LEFT
-        stopAfter = sharedPreferences.getInt("stopAfter", -1)
-        if (stopAfter == -1) stopAfter = null
         delayedStartInSeconds = sharedPreferences.getInt("delayedStartInSeconds", 5) + 1
-        samplesPerPacket = sharedPreferences.getInt("samplesPerPacket", 10)
-
-
-        // Attempt to create CSV file for this session
-        if (sessionFileAlreadyExists()) {
-            stopReason = ServiceStopReason.CSV_FILE_ALREADY_EXISTS
-            stopSelf()
-            return
-        } else {
-            val fileCreated = createCSVFile()
-            if (!fileCreated) {
-                stopReason = ServiceStopReason.CSV_FILE_NOT_CREATED
-                stopSelf()
-                return
-            }
-        }
+        samplesPerPacket = 100//sharedPreferences.getInt("samplesPerPacket", 100)
 
 
         // Create a DataListener instance and register its possible callbacks to receive messages from the Wear OS device
@@ -310,8 +342,41 @@ class TrainForegroundService : Service() {
         //Wearable.getCapabilityClient(this).addListener(this, "data_capture_service")
 
 
+        // Load recognition model
+        val modelFile = loadModelFile()
+        if (modelFile == null) {
+            stopReason = ServiceStopReason.MODEL_NOT_FOUND
+            stopSelf()
+            return
+        } else {
+            tfliteInterpreter = Interpreter(modelFile)
+            if (!tfliteInterpreter.getInputTensor(0).shape().contentEquals(modelInputShape)) {
+                Log.e("RecognitionForegroundService TFLite", "Model input shape (${tfliteInterpreter.getInputTensor(0).shape()}) does not match expected shape ($modelInputShape)")
+                stopReason = ServiceStopReason.MODEL_NOT_COMPATIBLE
+                stopSelf()
+                return
+            }
+
+            if (tfliteInterpreter.getInputTensor(0).dataType() != modelInputDataType) {
+                Log.e("RecognitionForegroundService TFLite", "Model input data type (${tfliteInterpreter.getInputTensor(0).dataType()}) does not match expected data type ($modelInputDataType)")
+                stopReason = ServiceStopReason.MODEL_NOT_COMPATIBLE
+                stopSelf()
+                return
+            }
+
+            val numClasses = tfliteInterpreter.getOutputTensor(0).shape()[1]
+            if (numClasses != Action.entries.size) {
+                Log.e("RecognitionForegroundService TFLite", "Model output size ($numClasses) does not match Action enum size (${Action.entries.size})")
+                stopReason = ServiceStopReason.MODEL_NOT_COMPATIBLE
+                stopSelf()
+                return
+            }
+        }
+
+
+
         // Store instance in ForegroundServiceHolder and start as a foreground service
-        TrainForegroundServiceHolder.service = this
+        RecognitionForegroundServiceHolder.service = this
         startForeground(1, createNotification()) // Service will run in foreground
 
 
@@ -332,7 +397,6 @@ class TrainForegroundService : Service() {
         if (::dataListener.isInitialized) Wearable.getMessageClient(this).removeListener(dataListener)
         //Wearable.getCapabilityClient(this).removeListener(this, "data_capture_service")
 
-        deleteCSVFileIfEmpty()
         cancelDelayedStartCountdown()
         setServiceStatus(ServiceStatus.STOPPED)
 
@@ -340,7 +404,7 @@ class TrainForegroundService : Service() {
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.cancel(SERVICE_NOTIFICATION_RUNNING_ID)
 
-        TrainForegroundServiceHolder.service = null
+        RecognitionForegroundServiceHolder.service = null
 
         super.onDestroy()
     }
@@ -381,114 +445,109 @@ class TrainForegroundService : Service() {
 
 
 
-    // CSV file management
-    private var sessionCsvFile: File? = null
-    private fun createCSVFile(): Boolean {
-        val context: Context = this
-        _totalSensorSamplesCaptured.value = 0
-        val unixTimestamp = System.currentTimeMillis() / 1000
-        val fileName = "${unixTimestamp}_${alias}.csv"
-
-        val trainSessionsFolder = File(context.filesDir, SESSIONS_STORED_IN_SUBFOLDER)
-        if (!trainSessionsFolder.exists()) {
-            trainSessionsFolder.mkdirs() // Create directory if it doesn't exist
-        }
-        val file = File(trainSessionsFolder, fileName) // Store CSV files in the app's internal storage directory
-
-        try {
-            val writer = FileWriter(file)
-            writer.flush()
-            writer.close()
-            sessionCsvFile = file
-            Log.d("SensorDataReceiverService", "CSV file created: ${file.name}")
-            return true
-        } catch (e: IOException) {
-            e.printStackTrace()
-            sessionCsvFile = null
-            return false
-        }
-    }
-    private fun sessionFileAlreadyExists(): Boolean {
-        val context: Context = this
-        val fileList = context.filesDir.listFiles { file -> file.extension == "csv" }?.toMutableList() ?: mutableListOf()
-
-        var exists = false
-        for (file in fileList) {
-            if (file.nameWithoutExtension.split("_")[1] == alias) {
-                exists = true
-                break
-            }
-        }
-        return exists
-    }
-    private fun appendDataToCSVFile(accData: Array<Float>, gyroData: Array<Float>) : Int? {
-        if (sessionCsvFile == null) {
-            return null
-        }
-
-        val csvLine = CSVLine(
-            action = action,
-            sessionName = alias,
-            sessionUserName = user,
-            sessionUserHand = userHand,
-            samplesPerPacket = samplesPerPacket,
-            accX = accData[0],
-            accY = accData[1],
-            accZ = accData[2],
-            gyroX = gyroData[0],
-            gyroY = gyroData[1],
-            gyroZ = gyroData[2]
-        )
-
-        try {
-            val writer = FileWriter(sessionCsvFile, true)
-            writer.append("$csvLine\n")
-            _totalSensorSamplesCaptured.value = _totalSensorSamplesCaptured.value + 1
-            writer.flush()
-            writer.close()
-            return _totalSensorSamplesCaptured.value
-        } catch (e: IOException) {
-            e.printStackTrace()
-            return null
-        }
-    }
-    private fun deleteCSVFileIfEmpty() {
-        if (sessionCsvFile != null) {
-            if (_totalSensorSamplesCaptured.value == 0) {
-                sessionCsvFile?.delete()
-                Log.d("SensorDataReceiverService", "CSV file deleted: ${sessionCsvFile?.name}")
-                sessionCsvFile = null
-            }
-        }
-    }
-
-
-
     // Process received sensor data string
+    private fun prepareSensorData(sensorDataString: String): Array<FloatArray> {
+        val sensorDataSamples = sensorDataString.split("|") // Split into individual samples
+        val mergedSensorData = Array(sensorDataSamples.size) { FloatArray(6) } // Initialize the output array
+
+        for (i in sensorDataSamples.indices) {
+            val sample = sensorDataSamples[i]
+            val values = sample.split(";") // Split each sample into acc and gyro parts
+
+            val acc = values[0].split(",") // Split acc into x, y, z
+            val gyro = values[1].split(",") // Split gyro into x, y, z
+
+            // Directly assign the parsed float values to the correct indices in the output array
+            mergedSensorData[i][0] = acc[0].toFloat() // Accelerometer X
+            mergedSensorData[i][1] = acc[1].toFloat() // Accelerometer Y
+            mergedSensorData[i][2] = acc[2].toFloat() // Accelerometer Z
+
+            mergedSensorData[i][3] = gyro[0].toFloat() // Gyroscope X
+            mergedSensorData[i][4] = gyro[1].toFloat() // Gyroscope Y
+            mergedSensorData[i][5] = gyro[2].toFloat() // Gyroscope Z
+        }
+
+        return mergedSensorData
+    }
     private fun processSensorDataString(sensorDataString: String) {
-        val sensorDataSamples = sensorDataString.split("|")
-        val stopAfterSamples = stopAfter ?: -1
-        for (sample in sensorDataSamples) {
-            val values = sample.split(";")
+        if (recognitionInProcess) return
 
-            val acc = values[0].split(",")
-            val accData = arrayOf(acc[0].toFloat(), acc[1].toFloat(), acc[2].toFloat())
-            val gyro = values[1].split(",")
-            val gyroData = arrayOf(gyro[0].toFloat(), gyro[1].toFloat(), gyro[2].toFloat())
+        recognitionInProcess = true
 
-            if (stopAfterSamples == -1 || (stopAfterSamples != -1 && _totalSensorSamplesCaptured.value < stopAfterSamples)) {
-                val appended = appendDataToCSVFile(accData, gyroData) is Int
-                if (appended) {
-                    if ((stopAfterSamples != -1 && _totalSensorSamplesCaptured.value >= stopAfterSamples)) {
-                        stopReason = ServiceStopReason.STOP_AFTER_SAMPLE_COUNT
-                        stopSelf()
-                        break
-                    }
+        Thread {
+            val inputData = prepareSensorData(sensorDataString)
+            val action = recognizeAction(inputData)
+
+            action?.let {
+                Log.d("Predict", "Predicted action: ${it.name}")
+                _currentRecognizedAction.value = action
+            }
+
+            recognitionInProcess = false
+        }.start()
+    }
+
+
+
+
+    // Load selected model
+    private fun loadModelFile(): MappedByteBuffer? {
+        val modelFile = getSelectedModelFile() ?: return null
+
+        val inputStream = FileInputStream(modelFile)
+        val fileChannel = inputStream.channel
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, modelFile.length())
+    }
+
+    /*fun recognizeAction(inputData: Array<Array<FloatArray>>): Action? {
+        val output = Array(1) { FloatArray(Action.entries.size) }
+        tfliteInterpreter.run(inputData, output)
+
+        val predictedIndex = output[0].indices.maxByOrNull { output[0][it] } ?: return null
+        return Action.entries[predictedIndex]
+    }*/
+
+    private fun recognizeAction(inputData: Array<FloatArray>): Action? {
+        try {
+            if (inputData.size != 100) return null // Validación de tamaño
+
+            // Crear el tensor de entrada con el shape fijo (1, 100, 6)
+            val inputTensor =
+                TensorBufferFloat.createFixedSize(intArrayOf(1, 100, 6), DataType.FLOAT32)
+
+            // Aplanar los datos para cargarlos en el tensor
+            val flattenedData = FloatArray(100 * 6) // 100 timesteps * 6 valores cada uno
+            for (i in inputData.indices) {
+                for (j in inputData[i].indices) {
+                    flattenedData[i * 6 + j] = inputData[i][j]
                 }
             }
 
+            // Cargar los datos en el tensor
+            inputTensor.loadArray(flattenedData, intArrayOf(1, 100, 6))
+
+            // Crear el tensor de salida
+            val outputTensor = TensorBufferFloat.createFixedSize(
+                intArrayOf(1, Action.entries.size),
+                DataType.FLOAT32
+            )
+
+            // Ejecutar la inferencia
+            tfliteInterpreter.run(inputTensor.buffer, outputTensor.buffer)
+
+            // Obtener la acción predicha
+            val predictions = outputTensor.floatArray
+            val predictedIndex = predictions.indices.maxByOrNull { predictions[it] } ?: return null
+
+            return Action.entries.getOrNull(predictedIndex)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            stopReason = ServiceStopReason.RECOGNITION_ERROR
+            stopSelf()
+            return null
         }
     }
+
 
 
 
@@ -496,14 +555,14 @@ class TrainForegroundService : Service() {
     // On capability changed
     /*override fun onCapabilityChanged(capabilityInfo: CapabilityInfo) {
         if (capabilityInfo.nodes.isEmpty()) {
-            Log.d("SensorDataReceiverService", "Mobile device disconnected, stopping service")
+            Log.d("RecognitionForegroundService", "Mobile device disconnected, stopping service")
             val intent = Intent("TRAIN_SERVICE_STATUS_CHANGED")
             intent.putExtra("SERVICE_STATUS", ServiceStatus.NOT_CONNECTED)
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
             stopReason = ServiceStopReason.WEAR_DEVICE_DISCONNECTED
             stopSelf() // Stop the service if the mobile device is disconnected
         } else {
-            Log.d("SensorDataReceiverService", "Mobile device connected")
+            Log.d("RecognitionForegroundService", "Mobile device connected")
             val intent = Intent("TRAIN_SERVICE_STATUS_CHANGED")
             intent.putExtra("SERVICE_STATUS", ServiceStatus.STOPPED)
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
@@ -517,9 +576,9 @@ class TrainForegroundService : Service() {
     // DataListener callbacks
     private val dataListenerCallbacks: Map<String, (String?) -> Unit> = mapOf(
         "/sensor_capture_started" to {
-            TrainForegroundServiceHolder.service?.let { service ->
+            RecognitionForegroundServiceHolder.service?.let { service ->
                 if (getServiceStatus() in listOf(ServiceStatus.WAITING)) {
-                    Log.d("SensorDataReceiverService DataListener", "Wear OS device confirmed sensor capture started")
+                    Log.d("RecognitionForegroundService DataListener", "Wear OS device confirmed sensor capture started")
                     service.resetLastMessageFromWearTime()
                     service.setServiceStatus(ServiceStatus.RECEIVING)
                 }
@@ -527,7 +586,7 @@ class TrainForegroundService : Service() {
         },
 
         "/sensor_data" to { sensorDataString ->
-            TrainForegroundServiceHolder.service?.let { service ->
+            RecognitionForegroundServiceHolder.service?.let { service ->
                 if ((getServiceStatus() in listOf(ServiceStatus.RECEIVING)) && (sensorDataString ?: "").contains("|")) {
                     service.resetLastMessageFromWearTime()
                     service.receivedSensorDataPacketsCount++
@@ -536,7 +595,7 @@ class TrainForegroundService : Service() {
 
                     val currentTime = System.currentTimeMillis()
                     if (currentTime - lastConfirmationSentTime >= CONFIRMATION_TIME_INTERVAL) {
-                        Log.d("SensorDataReceiverService DataListener", "Sending confirmation to Wear OS device")
+                        Log.d("RecognitionForegroundService DataListener", "Sending confirmation to Wear OS device")
                         ConnectionManager.messageQueue.confirmMoreSensorDataNeeded()
                         lastConfirmationSentTime = currentTime
                     }
