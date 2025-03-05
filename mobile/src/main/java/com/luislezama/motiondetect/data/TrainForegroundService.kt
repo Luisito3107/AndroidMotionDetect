@@ -82,6 +82,7 @@ class TrainForegroundService : Service() {
         private const val SERVICE_NOTIFICATION_CHANNEL_ID = "TrainingServiceChannel"
         private const val SERVICE_NOTIFICATION_RUNNING_ID = 1
         private const val SERVICE_NOTIFICATION_TIMEOUT_ID = 2
+        private const val SERVICE_NOTIFICATION_STOPAFTERSAMPLES_ID = 3
         const val SESSIONS_STORED_IN_SUBFOLDER = "trainsessions"
         const val ACTION_SERVICE_STATUS_CHANGED = "TRAIN_SERVICE_STATUS_CHANGED"
     }
@@ -255,12 +256,32 @@ class TrainForegroundService : Service() {
 
         val notification = NotificationCompat.Builder(context, SERVICE_NOTIFICATION_CHANNEL_ID)
             .setContentTitle(getString(R.string.train_service_notification_timeout_title))
-            .setContentText(getString(R.string.train_service_notification_timeout_content, _totalSensorSamplesCaptured.value, _delayedStartRemainingTime.value))
+            .setContentText(getString(R.string.train_service_notification_timeout_content, _totalSensorSamplesCaptured.value, (WEAR_MESSAGE_TIMEOUT_IN_MS / 1000)))
             .setSmallIcon(R.drawable.ic_train)
             .setAutoCancel(true)
             .build()
 
         notificationManager.notify(SERVICE_NOTIFICATION_TIMEOUT_ID, notification)
+    }
+
+    private fun sendStopAfterSamplesNotification(context: Context) {
+        val notificationChannel = NotificationChannel(
+            SERVICE_NOTIFICATION_CHANNEL_ID,
+            getString(R.string.train_service_notification_channel_name),
+            NotificationManager.IMPORTANCE_LOW
+        )
+
+        val notificationManager = context.getSystemService(NotificationManager::class.java)
+        notificationManager.createNotificationChannel(notificationChannel)
+
+        val notification = NotificationCompat.Builder(context, SERVICE_NOTIFICATION_CHANNEL_ID)
+            .setContentTitle(getString(R.string.train_service_notification_stopaftersamples_title))
+            .setContentText(getString(R.string.train_service_notification_stopaftersamples_content, _totalSensorSamplesCaptured.value))
+            .setSmallIcon(R.drawable.ic_train)
+            .setAutoCancel(true)
+            .build()
+
+        notificationManager.notify(SERVICE_NOTIFICATION_STOPAFTERSAMPLES_ID, notification)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -481,6 +502,7 @@ class TrainForegroundService : Service() {
                 if (appended) {
                     if ((stopAfterSamples != -1 && _totalSensorSamplesCaptured.value >= stopAfterSamples)) {
                         stopReason = ServiceStopReason.STOP_AFTER_SAMPLE_COUNT
+                        sendStopAfterSamplesNotification(this)
                         stopSelf()
                         break
                     }

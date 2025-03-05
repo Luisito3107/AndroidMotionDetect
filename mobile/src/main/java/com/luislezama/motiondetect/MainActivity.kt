@@ -32,6 +32,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Try to delete shared zip file if it exists to keep app storage size at a minimum
+        TrainHistoryActivity.deleteSharedZipFileIfOld(this)
+
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 

@@ -21,10 +21,11 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:layout_gravity="center"
-            app:title="@string/train_history_title"
+            app:layout_collapseMode="pin"
+            app:menu="@menu/menu_train_history"
             app:navigationIcon="@drawable/ic_arrow_back"
             app:navigationIconTint="?attr/colorOnSurface"
-            app:layout_collapseMode="pin" />
+            app:title="@string/train_history_title" />
 
     </com.google.android.material.appbar.AppBarLayout>
 

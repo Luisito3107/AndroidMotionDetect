@@ -73,6 +73,8 @@
     <string name="train_service_notification_button_open_app">Open app</string>
     <string name="train_service_notification_timeout_title">Training session stopped</string>
     <string name="train_service_notification_timeout_content">Training stopped after %d samples, no response from Wear OS device in %d seconds.</string>
+    <string name="train_service_notification_stopaftersamples_title">Training session stopped</string>
+    <string name="train_service_notification_stopaftersamples_content">Training session stopped after %d samples.</string>
 
 
 

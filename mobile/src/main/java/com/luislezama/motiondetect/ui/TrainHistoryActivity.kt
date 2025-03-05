@@ -67,6 +67,8 @@ class TrainHistoryActivity : AppCompatActivity() {
             }
         }
         recyclerView.adapter = adapter
+
+        deleteSharedZipFileIfOld(this)
     }
 
 
@@ -225,8 +227,14 @@ class TrainHistoryActivity : AppCompatActivity() {
             return
         }
 
+        // Delete existent ZIP file (there is only one)
+        val existentZipFile = context.filesDir.listFiles { file -> file.extension == "zip" }?.firstOrNull()
+        if (existentZipFile?.exists() == true) existentZipFile.delete()
+
+
         // Create ZIP file in the app data
-        val zipFile = File(context.filesDir, "sessions_backup.zip")
+        val timestamp = (System.currentTimeMillis() / 1000)
+        val zipFile = File(context.filesDir, "${timestamp}_training_history.zip")
 
 
         // Show a loading dialog before starting the copy
@@ -277,13 +285,23 @@ class TrainHistoryActivity : AppCompatActivity() {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(Intent.createChooser(intent, getString(R.string.train_history_share_all_as_zip)))
+    }
 
-        // Delete ZIP file after sharing
-        CoroutineScope(Dispatchers.IO).launch {
-            delay(5000) // Wait 5 seconds before deleting the file
-            zipFile.delete()
+    companion object {
+        // Delete file if created more than an hour ago
+        fun deleteSharedZipFileIfOld(context: Context) {
+            val existentZipFile = context.filesDir.listFiles { file -> file.extension == "zip" }?.firstOrNull()
+            if (existentZipFile?.exists() == true) {
+                val currentTime = System.currentTimeMillis()
+                val fileTime = existentZipFile.lastModified()
+                if (currentTime - fileTime > 60 * 60 * 1000) {
+                    existentZipFile.delete()
+                }
+            }
         }
     }
+
+
 
 
     // Train history button only visible in the train fragment
