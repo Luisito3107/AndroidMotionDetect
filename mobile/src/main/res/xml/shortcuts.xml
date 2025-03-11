@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="recognition"
+        android:enabled="true"
+        android:icon="@drawable/ic_predict"
+        android:shortcutShortLabel="@string/recognition_title"
+        android:shortcutLongLabel="@string/recognition_title"
+        android:shortcutDisabledMessage="@string/recognition_title">
+
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.luislezama.motiondetect"
+            android:targetClass="com.luislezama.motiondetect.ui.MainActivity">
+
+            <extra android:name="FRAGMENT_TO_OPEN" android:value="recognition" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="train"
+        android:enabled="true"
+        android:icon="@drawable/ic_train"
+        android:shortcutShortLabel="@string/train_title"
+        android:shortcutLongLabel="@string/train_title"
+        android:shortcutDisabledMessage="@string/train_title">
+
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.luislezama.motiondetect"
+            android:targetClass="com.luislezama.motiondetect.ui.MainActivity">
+
+            <extra android:name="FRAGMENT_TO_OPEN" android:value="train" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="train_history"
+        android:enabled="true"
+        android:icon="@drawable/ic_history"
+        android:shortcutShortLabel="@string/train_history_title"
+        android:shortcutLongLabel="@string/train_history_title"
+        android:shortcutDisabledMessage="@string/train_history_title">
+
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.luislezama.motiondetect"
+            android:targetClass="com.luislezama.motiondetect.ui.TrainHistoryActivity">
+
+            <!-- <extra android:name="FRAGMENT_TO_OPEN" android:value="recognition" /> -->
+        </intent>
+    </shortcut>
+</shortcuts>

@@ -1,4 +1,4 @@
-package com.luislezama.motiondetect
+package com.luislezama.motiondetect.ui
 
 import android.Manifest
 import android.content.Intent
@@ -16,13 +16,13 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.NavigationUI
 import androidx.navigation.ui.NavigationUI.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
+import com.luislezama.motiondetect.R
+import com.luislezama.motiondetect.data.RecognitionForegroundService
 import com.luislezama.motiondetect.data.RecognitionForegroundServiceHolder
+import com.luislezama.motiondetect.data.TrainForegroundService
 import com.luislezama.motiondetect.data.TrainForegroundServiceHolder
 import com.luislezama.motiondetect.databinding.ActivityMainBinding
 import com.luislezama.motiondetect.deviceconnection.ConnectionManager
-import com.luislezama.motiondetect.ui.RecognitionFragment
-import com.luislezama.motiondetect.ui.TrainFragment
-import com.luislezama.motiondetect.ui.TrainHistoryActivity
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -57,25 +57,6 @@ class MainActivity : AppCompatActivity() {
         requestNotificationPermission()
 
 
-        val fragmentToOpen = intent.getStringExtra("FRAGMENT_TO_OPEN")
-        when {
-            fragmentToOpen == "recognition" || RecognitionForegroundServiceHolder.service != null -> {
-                navView.selectedItemId = R.id.navigation_recognition
-                supportFragmentManager.beginTransaction().let {
-                    it.replace(R.id.nav_host_fragment_activity_main, RecognitionFragment())
-                    it.commit()
-                }
-            }
-            fragmentToOpen == "train" || TrainForegroundServiceHolder.service != null -> {
-                navView.selectedItemId = R.id.navigation_train
-                supportFragmentManager.beginTransaction().let {
-                    it.replace(R.id.nav_host_fragment_activity_main, TrainFragment())
-                    it.commit()
-                }
-            }
-        }
-
-
         navView.setOnItemSelectedListener { item ->
             val currentDestinationId = navController.currentDestination?.id
             var continueNavigation = true
@@ -87,8 +68,10 @@ class MainActivity : AppCompatActivity() {
 
                     if (TrainForegroundServiceHolder.service != null) {
                         continueNavigation = false
-                        Toast.makeText(this, "Train service is running", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, getString(R.string.train_toast_error_cant_exit), Toast.LENGTH_SHORT).show()
                     }
+
+                    if (continueNavigation) showTrainHistoryButton(false)
                 }
                 R.id.navigation_train -> {
                     continueNavigation =
@@ -96,19 +79,23 @@ class MainActivity : AppCompatActivity() {
 
                     if (RecognitionForegroundServiceHolder.service != null) {
                         continueNavigation = false
-                        Toast.makeText(this, "Recognition service is running", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, getString(R.string.recognition_toast_error_cant_exit), Toast.LENGTH_SHORT).show()
                     }
+
+                    if (continueNavigation) showTrainHistoryButton(true)
                 }
                 R.id.navigation_settings -> {
                     if (TrainForegroundServiceHolder.service != null) {
                         continueNavigation = false
-                        Toast.makeText(this, "Train service is running", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, getString(R.string.train_toast_error_cant_exit), Toast.LENGTH_SHORT).show()
                     }
 
                     if (RecognitionForegroundServiceHolder.service != null) {
                         continueNavigation = false
-                        Toast.makeText(this, "Recognition service is running", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, getString(R.string.recognition_toast_error_cant_exit), Toast.LENGTH_SHORT).show()
                     }
+
+                    if (continueNavigation) showTrainHistoryButton(false)
                 }
             }
 
@@ -117,6 +104,24 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             else return@setOnItemSelectedListener false
+        }
+
+
+
+
+        var fragmentToOpen = intent.getStringExtra("FRAGMENT_TO_OPEN")
+        if (TrainForegroundService.getServiceStatus() != TrainForegroundService.ServiceStatus.STOPPED) fragmentToOpen = "train"
+        else if (RecognitionForegroundService.getServiceStatus() != RecognitionForegroundService.ServiceStatus.STOPPED) fragmentToOpen = "recognition"
+
+        when {
+            fragmentToOpen == "recognition" -> {
+                navView.selectedItemId = R.id.navigation_recognition
+                navView.menu.performIdentifierAction(R.id.navigation_recognition, 0)
+            }
+            fragmentToOpen == "train" -> {
+                navView.selectedItemId = R.id.navigation_train
+                showTrainHistoryButton(true)
+            }
         }
     }
 
@@ -138,7 +143,7 @@ class MainActivity : AppCompatActivity() {
                     val intent = Intent(this, TrainHistoryActivity::class.java)
                     startActivity(intent)
                 } else {
-                    Toast.makeText(this, "Train service is running", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.train_history_toast_error_train_running), Toast.LENGTH_SHORT).show()
                 }
 
                 true

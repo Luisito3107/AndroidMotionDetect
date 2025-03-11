@@ -26,7 +26,6 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.slider.Slider
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
-import com.luislezama.motiondetect.MainActivity
 import com.luislezama.motiondetect.R
 import com.luislezama.motiondetect.data.Action
 import com.luislezama.motiondetect.data.HandOption
@@ -95,6 +94,9 @@ class TrainFragment : Fragment() {
         // Register for service status changes
         val statusChangedFilter = IntentFilter(TrainForegroundService.ACTION_SERVICE_STATUS_CHANGED)
         LocalBroadcastManager.getInstance(requireContext()).registerReceiver(localBroadcastReceiver, statusChangedFilter)
+
+        // Show train history button
+        (activity as? MainActivity)?.showTrainHistoryButton(true)
 
         return trainLayout
     }

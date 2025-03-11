@@ -10,9 +10,12 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
@@ -43,6 +46,17 @@ class TrainHistoryActivity : AppCompatActivity() {
     var fileList: MutableList<File> = mutableListOf()
     private lateinit var adapter: CsvFileAdapter
 
+    private lateinit var loadingLayout: LinearLayout
+    private lateinit var contentLayout: LinearLayout
+    private lateinit var recyclerView: RecyclerView
+
+    private lateinit var statsSampleTotal: TextView
+    private lateinit var statsSampleStanding: TextView
+    private lateinit var statsSampleWalking: TextView
+    private lateinit var statsSampleRunning: TextView
+    private lateinit var statsSampleSitting: TextView
+    private lateinit var statsSampleLying: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -55,23 +69,59 @@ class TrainHistoryActivity : AppCompatActivity() {
             finish()
         }
 
-        val recyclerView = findViewById<RecyclerView>(R.id.train_history_recycler_view)
-        recyclerView.layoutManager = LinearLayoutManager(this)
-
-        val subfolder = File(filesDir, TrainForegroundService.SESSIONS_STORED_IN_SUBFOLDER)
-        val fileList = subfolder.listFiles { file -> file.extension == "csv" }?.toMutableList() ?: mutableListOf()
-        adapter = CsvFileAdapter(fileList) { file, position ->
-            showFileOptionsDialog(this, file) {
-                fileList.removeAt(position)
-                adapter.notifyItemRemoved(position)
-            }
+        // Block access if Train service is running
+        if (TrainForegroundService.getServiceStatus() != TrainForegroundService.ServiceStatus.STOPPED) {
+            Toast.makeText(this, getString(R.string.train_history_toast_error_train_running), Toast.LENGTH_SHORT).show()
+            finish()
+            return
         }
-        recyclerView.adapter = adapter
+
+        loadingLayout = findViewById(R.id.train_history_layout_loading)
+        contentLayout = findViewById(R.id.train_history_layout_content)
+        recyclerView = findViewById(R.id.train_history_recycler_view)
+        recyclerView.layoutManager = LinearLayoutManager(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        // Block access if Train service is running
+        if (TrainForegroundService.getServiceStatus() != TrainForegroundService.ServiceStatus.STOPPED) {
+            Toast.makeText(this, getString(R.string.train_history_toast_error_train_running), Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
 
         deleteSharedZipFileIfOld(this)
+        loadFiles()
     }
 
 
+    private fun loadFiles() {
+        loadingLayout.visibility = View.VISIBLE
+        contentLayout.visibility = View.GONE
+
+        lifecycleScope.launch(Dispatchers.Main) {
+            fileList = withContext(Dispatchers.IO) {
+                val subfolder = File(filesDir, TrainForegroundService.SESSIONS_STORED_IN_SUBFOLDER)
+                subfolder.listFiles { file -> file.extension == "csv" }?.sortedByDescending { it.lastModified() }?.toMutableList() ?: mutableListOf()
+            }
+
+            adapter = CsvFileAdapter(fileList) { file, position ->
+                showFileOptionsDialog(this@TrainHistoryActivity, file) {
+                    fileList.removeAt(position)
+                    adapter.notifyItemRemoved(position)
+                    countTotalSamples(fileList)
+                }
+            }
+            recyclerView.adapter = adapter
+
+            countTotalSamples(fileList)
+
+            loadingLayout.visibility = View.GONE
+            contentLayout.visibility = View.VISIBLE
+        }
+    }
 
     class CsvFileAdapter(
         private val files: List<File>,
@@ -111,23 +161,18 @@ class TrainHistoryActivity : AppCompatActivity() {
                     Date(timestamp)
                 )
 
-                val fileLines = file.readLines()
+                file.bufferedReader().use { reader ->
+                    val firstLine = reader.readLine() ?: ""
+                    val csvLine = CSVLine.fromCSVString(firstLine)
+                    val lineCount = 1 + reader.lineSequence().count()
 
-                // Find action icon and label inside the first line of the file
-                fileLines.firstOrNull()?.let { line ->
-                    val csvLine = CSVLine.fromCSVString(line)
-
-                    // Action icon and label
                     sessionActionIcon.setImageResource(csvLine.action.drawableResource)
                     sessionActionLabel.text = itemView.context.getString(csvLine.action.stringResource)
-
-                    // User name
                     sessionUserTextView.text = csvLine.sessionUserName
-                }
 
-                // Count samples in file
-                val recordCount = fileLines.size //- 1 // -1 If header present
-                sessionCountTextView.text = itemView.context.getString(R.string.train_history_session_count, recordCount)
+                    // Count samples in file
+                    sessionCountTextView.text = itemView.context.getString(R.string.train_history_session_count, lineCount)
+                }
 
                 // Calculate file size in MB
                 sessionFilesizeTextView.text = "%.2f MB".format(file.length() / (1024.0 * 1024.0))
@@ -319,6 +364,7 @@ class TrainHistoryActivity : AppCompatActivity() {
                 confirmDeleteAllFiles(this) {
                     fileList.clear()
                     adapter.notifyDataSetChanged()
+                    countTotalSamples(fileList)
                 }
                 true
             }
@@ -326,5 +372,38 @@ class TrainHistoryActivity : AppCompatActivity() {
                 super.onOptionsItemSelected(item)
             }
         }
+    }
+
+
+
+    // Count total samples
+    fun countTotalSamples(fileList: List<File>) {
+        statsSampleTotal = findViewById(R.id.train_history_stats_samples_total)
+        statsSampleStanding = findViewById(R.id.train_history_stats_samples_standing)
+        statsSampleWalking = findViewById(R.id.train_history_stats_samples_walking)
+        statsSampleRunning = findViewById(R.id.train_history_stats_samples_running)
+        statsSampleSitting = findViewById(R.id.train_history_stats_samples_sitting)
+        statsSampleLying = findViewById(R.id.train_history_stats_samples_lying)
+
+        val sampleCounts = mutableMapOf<Action, Int>()
+        val totalFileSizes = mutableMapOf<Action, Long>()
+
+        fileList.forEach { file ->
+            file.bufferedReader().use { reader ->
+                val firstLine = reader.readLine() ?: return@forEach  // Read only first line to
+                val action = CSVLine.fromCSVString(firstLine).action // get the action.
+                val lineCount = 1 + reader.lineSequence().count()    // Then count the rest of the lines (+1 for the first line)
+                sampleCounts[action] = sampleCounts.getOrDefault(action, 0) + lineCount
+                totalFileSizes[action] = totalFileSizes.getOrDefault(action, 0) + file.length()
+            }
+        }
+
+        val totalSamples = sampleCounts.values.sum()
+        statsSampleTotal.text = getString(R.string.train_history_stats_samples_count, totalSamples, totalFileSizes.values.sum() / (1024.0 * 1024.0))
+        statsSampleStanding.text = getString(R.string.train_history_stats_samples_count, sampleCounts[Action.STANDING] ?: 0, (totalFileSizes[Action.STANDING] ?: 0) / (1024.0 * 1024.0))
+        statsSampleWalking.text = getString(R.string.train_history_stats_samples_count, sampleCounts[Action.WALKING] ?: 0, (totalFileSizes[Action.WALKING] ?: 0) / (1024.0 * 1024.0))
+        statsSampleRunning.text = getString(R.string.train_history_stats_samples_count, sampleCounts[Action.RUNNING] ?: 0, (totalFileSizes[Action.RUNNING] ?: 0) / (1024.0 * 1024.0))
+        statsSampleSitting.text = getString(R.string.train_history_stats_samples_count, sampleCounts[Action.SITTING] ?: 0, (totalFileSizes[Action.SITTING] ?: 0) / (1024.0 * 1024.0))
+        statsSampleLying.text = getString(R.string.train_history_stats_samples_count, sampleCounts[Action.LYING] ?: 0, (totalFileSizes[Action.LYING] ?: 0) / (1024.0 * 1024.0))
     }
 }

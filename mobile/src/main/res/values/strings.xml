@@ -3,7 +3,7 @@
 
     <string name="recognition_title">Recognition</string>
     <string name="recognition_status_title">Status</string>
-    <string name="recognition_status_delayedstart">Starting capture session in</string>
+    <string name="recognition_status_delayedstart">Starting recognition session in</string>
     <string name="recognition_status_waiting">Waiting for Wear OS device to respond</string>
     <string name="recognition_status_receiving_waiting">Waiting for the first action recognition result</string>
     <string name="recognition_status_receiving_recognizing">You are %s</string>
@@ -24,6 +24,7 @@
     <string name="recognition_toast_error_no_wearos">Please select a Wear OS device in Settings</string>
     <string name="recognition_toast_error_no_model">Please select a recognition model in Settings</string>
     <string name="recognition_toast_error_model_not_compatible">Selected model doesn\'t meet the required characteristics</string>
+    <string name="recognition_toast_error_cant_exit">You can\'t leave Recognition while a session is running</string>
     <string name="recognition_service_notification_channel_name">Recognition service</string>
     <string name="recognition_service_notification_title">Recognition session running</string>
     <string name="recognition_service_notification_content_delayedstart">Starting capture session in %d seconds</string>
@@ -79,6 +80,8 @@
 
 
     <string name="train_history_title">Train history</string>
+    <string name="train_history_stats_total_samples">Total samples captured</string>
+    <string name="train_history_stats_samples_count">%d (%.2f MB)</string>
     <string name="train_history_session">Session %s</string>
     <string name="train_history_session_count">%d samples</string>
     <string name="train_history_session_dialog_title">Actions for session %s</string>
@@ -103,6 +106,7 @@
     <string name="train_history_share_all_as_zip_cancel">Cancel</string>
     <string name="train_history_share_all_as_zip_error">Error creating ZIP file</string>
     <string name="train_history_share_all_as_zip_error_no_sessions">No sessions to share</string>
+    <string name="train_history_toast_error_train_running">Train history is not available while a capture session is running</string>
 
 
 
