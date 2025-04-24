@@ -28,7 +28,6 @@ import com.luislezama.motiondetect.data.TrainForegroundService
 import com.luislezama.motiondetect.databinding.ActivityTrainHistoryBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -104,7 +103,7 @@ class TrainHistoryActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.Main) {
             fileList = withContext(Dispatchers.IO) {
                 val subfolder = File(filesDir, TrainForegroundService.SESSIONS_STORED_IN_SUBFOLDER)
-                subfolder.listFiles { file -> file.extension == "csv" }?.sortedByDescending { it.lastModified() }?.toMutableList() ?: mutableListOf()
+                subfolder.listFiles { file -> file.extension == "csv" }?.sortedByDescending { it.nameWithoutExtension }?.toMutableList() ?: mutableListOf()
             }
 
             adapter = CsvFileAdapter(fileList) { file, position ->
