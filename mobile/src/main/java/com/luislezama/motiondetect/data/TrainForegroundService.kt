@@ -10,8 +10,11 @@ import android.content.Context
 import android.content.Intent
 import android.os.CountDownTimer
 import android.os.IBinder
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.android.gms.wearable.Wearable
 import com.luislezama.motiondetect.R
@@ -363,6 +366,13 @@ class TrainForegroundService : Service() {
 
         TrainForegroundServiceHolder.service = null
 
+        // Try to make the device vibrate on service stop
+        val vibrator = ContextCompat.getSystemService(this, Vibrator::class.java)
+        vibrator?.let {
+            val effect = VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE)
+            it.vibrate(effect)
+        }
+
         super.onDestroy()
     }
 
@@ -430,12 +440,11 @@ class TrainForegroundService : Service() {
         }
     }
     private fun sessionFileAlreadyExists(): Boolean {
-        val context: Context = this
-        val fileList = context.filesDir.listFiles { file -> file.extension == "csv" }?.toMutableList() ?: mutableListOf()
+        val fileList = File(filesDir, SESSIONS_STORED_IN_SUBFOLDER).listFiles { file -> file.extension == "csv" }?.toMutableList() ?: mutableListOf()
 
         var exists = false
         for (file in fileList) {
-            if (file.nameWithoutExtension.split("_")[1] == alias) {
+            if (file.nameWithoutExtension.split("_", limit = 2)[1] == alias) {
                 exists = true
                 break
             }

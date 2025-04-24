@@ -13,8 +13,11 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.IBinder
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.CapabilityInfo
@@ -143,6 +146,14 @@ class WearForegroundService : Service(), CapabilityClient.OnCapabilityChangedLis
 
     fun stopCapturingSensors() {
         sensorManager.unregisterListener(sensorListener) // Stop accelerometer and gyroscope updates
+
+        // Try to make the device vibrate on capture stop
+        val vibrator = ContextCompat.getSystemService(this, Vibrator::class.java)
+        vibrator?.let {
+            val effect = VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE)
+            it.vibrate(effect)
+        }
+
         setServiceStatus(ServiceStatus.LISTENING)
     }
 
