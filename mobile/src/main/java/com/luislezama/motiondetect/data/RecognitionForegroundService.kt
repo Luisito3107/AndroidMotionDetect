@@ -509,37 +509,37 @@ class RecognitionForegroundService : Service() {
 
     private fun recognizeAction(inputData: Array<FloatArray>): Action? {
         try {
-            if (inputData.size != 100) return null // Validación de tamaño
+            if (inputData.size != 100) return null // Only allow 100 samples as input
 
-            // Crear el tensor de entrada con el shape fijo (1, 100, 6)
+            // Fix tensor input shape (1, 100, 6)
             val inputTensor =
                 TensorBufferFloat.createFixedSize(intArrayOf(1, 100, 6), DataType.FLOAT32)
 
-            // Aplanar los datos para cargarlos en el tensor
-            val flattenedData = FloatArray(100 * 6) // 100 timesteps * 6 valores cada uno
+            // Flatten the input data before loading it into the tensor
+            val flattenedData = FloatArray(100 * 6) // 100 timesteps, 6 values (coords) each
             for (i in inputData.indices) {
                 for (j in inputData[i].indices) {
                     flattenedData[i * 6 + j] = inputData[i][j]
                 }
             }
 
-            // Cargar los datos en el tensor
+            // Load the flattened data into the tensor
             inputTensor.loadArray(flattenedData, intArrayOf(1, 100, 6))
 
-            // Crear el tensor de salida
+            // Create the output tensor
             val outputTensor = TensorBufferFloat.createFixedSize(
                 intArrayOf(1, Action.entries.size),
                 DataType.FLOAT32
             )
 
-            // Ejecutar la inferencia
+            // Run the interpreter
             tfliteInterpreter.run(inputTensor.buffer, outputTensor.buffer)
 
-            // Obtener la acción predicha
+            // Get the output array
             val predictions = outputTensor.floatArray
             val predictedIndex = predictions.indices.maxByOrNull { predictions[it] } ?: return null
 
-            return Action.entries.getOrNull(predictedIndex)
+            return Action.entries.getOrNull(predictedIndex) // Return the corresponding action
         } catch (e: Exception) {
             e.printStackTrace()
             stopReason = ServiceStopReason.RECOGNITION_ERROR
